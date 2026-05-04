@@ -1,5 +1,9 @@
 import type { GameState } from "../game";
-import { PLAYER_IFRAME_DURATION } from "../constants";
+import {
+  IRON_SKIN_STACK,
+  PLAYER_IFRAME_DURATION,
+  THORNS_STACK,
+} from "../constants";
 
 export function updateCombat(state: GameState, dt: number): void {
   const player = state.player;
@@ -19,7 +23,14 @@ export function updateCombat(state: GameState, dt: number): void {
     const dy = e.pos.y - player.pos.y;
     const r = e.radius + player.radius;
     if (dx * dx + dy * dy <= r * r) {
-      applyDamage(state, e.damage);
+      const reduction = Math.max(0, 1 - player.ironSkinStacks * IRON_SKIN_STACK);
+      applyDamage(state, e.damage * reduction);
+
+      if (player.thornsStacks > 0) {
+        const reflect = e.damage * player.thornsStacks * THORNS_STACK;
+        e.hp -= reflect;
+        if (e.hp <= 0) e.alive = false;
+      }
       return;
     }
   }
@@ -31,7 +42,8 @@ export function updateCombat(state: GameState, dt: number): void {
     const r = p.radius + player.radius;
     if (dx * dx + dy * dy <= r * r) {
       p.alive = false;
-      applyDamage(state, p.damage);
+      const reduction = Math.max(0, 1 - player.ironSkinStacks * IRON_SKIN_STACK);
+      applyDamage(state, p.damage * reduction);
       return;
     }
   }

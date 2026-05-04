@@ -1,6 +1,7 @@
 import type {
   Boomerang,
   Camera,
+  ClusterBomb,
   Enemy,
   EnemyProjectile,
   ExtractionZone,
@@ -77,6 +78,13 @@ import {
   PAUSE_BUTTON_ICON,
   PAUSE_BUTTON_SIZE,
   PAUSE_HINT_FONT,
+  BERSERKER_HP_THRESHOLD,
+  BERSERKER_VIGNETTE_INNER,
+  BERSERKER_VIGNETTE_OUTER,
+  CRIT_CHANCE_DEFAULT,
+  CRIT_FLASH_COLOR,
+  CRIT_FLASH_RADIUS_MULT,
+  CRIT_MULT_DEFAULT,
   WIPE_SAVE_COLOR,
   WIPE_SAVE_FONT,
   WORKSHOP_BUY_BG,
@@ -133,6 +141,9 @@ import { updateMines } from "./systems/mines";
 import { updateLaser } from "./systems/laser";
 import { updateMachineGun } from "./systems/mg";
 import { updateRockets } from "./systems/rocket";
+import { updateClusterBombs } from "./systems/clusterBomb";
+import { updateRepulsor } from "./systems/repulsor";
+import { updateSword } from "./systems/sword";
 import {
   getExtractMultiplier,
   nextWindowOpenTime,
@@ -142,6 +153,8 @@ import {
   findAuraWeapon,
   findOrbWeapon,
   findProjectileWeapon,
+  findRepulsorWeapon,
+  findSwordWeapon,
   getOwnedWeaponDefs,
   projectileWeaponDef,
   WEAPON_DEFS,
@@ -185,6 +198,7 @@ export type GameState = {
   lightningBolts: LightningBolt[];
   rockets: Rocket[];
   laserBeams: LaserBeam[];
+  clusterBombs: ClusterBomb[];
   camera: Camera;
   input: InputState;
   viewport: { width: number; height: number };
@@ -220,6 +234,7 @@ export function initGame(viewport: { width: number; height: number }): GameState
     lightningBolts: [],
     rockets: [],
     laserBeams: [],
+    clusterBombs: [],
     camera: { pos: { x: 0, y: 0 }, prevPos: { x: 0, y: 0 } },
     input: createInput(),
     viewport,
@@ -264,6 +279,11 @@ function makeInitialPlayer(): Player {
     globalDamageMult: GLOBAL_DAMAGE_MULT_DEFAULT,
     rerollTokens: 0,
     runScrap: 0,
+    critChance: CRIT_CHANCE_DEFAULT,
+    critMult: CRIT_MULT_DEFAULT,
+    berserkerStacks: 0,
+    thornsStacks: 0,
+    ironSkinStacks: 0,
   };
 }
 
@@ -281,6 +301,7 @@ function freshRun(state: GameState): void {
   state.lightningBolts = [];
   state.rockets = [];
   state.laserBeams = [];
+  state.clusterBombs = [];
   state.camera = { pos: { x: 0, y: 0 }, prevPos: { x: 0, y: 0 } };
   state.spawnTimer = SPAWN_INTERVAL_START;
   state.pendingLevelUps = 0;
@@ -434,6 +455,9 @@ function tickPlaying(state: GameState, dt: number): void {
   updateLaser(state, dt);
   updateMachineGun(state, dt);
   updateRockets(state, dt);
+  updateClusterBombs(state, dt);
+  updateRepulsor(state, dt);
+  updateSword(state, dt);
 
   const extracting = updateExtraction(state, dt);
   if (extracting) {
@@ -675,6 +699,9 @@ function pruneDead(state: GameState): void {
   if (state.rockets.some((r) => !r.alive)) {
     state.rockets = state.rockets.filter((r) => r.alive);
   }
+  if (state.clusterBombs.some((b) => !b.alive)) {
+    state.clusterBombs = state.clusterBombs.filter((b) => b.alive);
+  }
 }
 
 export function renderGame(
@@ -717,11 +744,15 @@ export function renderGame(
   drawEnemyProjectiles(ctx, state, alpha, camX, camY);
   drawProjectiles(ctx, state, alpha, camX, camY);
   drawRockets(ctx, state, alpha, camX, camY);
+  drawClusterBombs(ctx, state, alpha, camX, camY);
   drawOrbs(ctx, state, alpha, camX, camY);
   drawBoomerangs(ctx, state, alpha, camX, camY);
   drawLightning(ctx, state, camX, camY);
   drawLaserBeams(ctx, state, camX, camY);
+  drawRepulsorPulse(ctx, state, camX, camY);
+  drawSwordSwing(ctx, state, camX, camY);
   drawPlayer(ctx, state, alpha, camX, camY);
+  drawBerserkerVignette(ctx, state);
   drawExtractionArrow(ctx, state, camX, camY);
   drawHud(ctx, state);
 
@@ -733,6 +764,26 @@ export function renderGame(
   else if (state.phase === "paused") drawPauseOverlay(ctx, state);
   else if (state.phase === "extracted") drawEndScreen(ctx, state, "extracted");
   else if (state.phase === "lost") drawEndScreen(ctx, state, "lost");
+}
+
+function drawBerserkerVignette(
+  ctx: CanvasRenderingContext2D,
+  state: GameState
+): void {
+  const p = state.player;
+  if (p.berserkerStacks <= 0) return;
+  if (p.maxHp <= 0) return;
+  if (p.hp / p.maxHp >= BERSERKER_HP_THRESHOLD) return;
+
+  const { width, height } = state.viewport;
+  const cx = width / 2;
+  const cy = height / 2;
+  const radius = Math.max(width, height) * 0.7;
+  const grad = ctx.createRadialGradient(cx, cy, radius * 0.4, cx, cy, radius);
+  grad.addColorStop(0, BERSERKER_VIGNETTE_INNER);
+  grad.addColorStop(1, BERSERKER_VIGNETTE_OUTER);
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, width, height);
 }
 
 function drawPauseButton(ctx: CanvasRenderingContext2D, state: GameState): void {
@@ -856,9 +907,15 @@ function drawEnemies(
     const ey = e.prevPos.y + (e.pos.y - e.prevPos.y) * alpha;
     const sx = width / 2 + (ex - camX);
     const sy = height / 2 + (ey - camY);
-    ctx.fillStyle = e.species === "shooter" ? SHOOTER_COLOR : ENEMY_COLOR;
+    const flashing = e.critFlashTtl > 0;
+    ctx.fillStyle = flashing
+      ? CRIT_FLASH_COLOR
+      : e.species === "shooter"
+      ? SHOOTER_COLOR
+      : ENEMY_COLOR;
+    const r = flashing ? e.radius * CRIT_FLASH_RADIUS_MULT : e.radius;
     ctx.beginPath();
-    ctx.arc(sx, sy, e.radius, 0, Math.PI * 2);
+    ctx.arc(sx, sy, r, 0, Math.PI * 2);
     ctx.fill();
   }
 }
@@ -1042,6 +1099,96 @@ function drawLaserBeams(
     ctx.lineTo(halfW + (b.end.x - camX), halfH + (b.end.y - camY));
     ctx.stroke();
   }
+  ctx.globalAlpha = prev;
+}
+
+function drawClusterBombs(
+  ctx: CanvasRenderingContext2D,
+  state: GameState,
+  alpha: number,
+  camX: number,
+  camY: number
+): void {
+  if (state.clusterBombs.length === 0) return;
+  const { width, height } = state.viewport;
+  const halfW = width / 2;
+  const halfH = height / 2;
+  ctx.fillStyle = WEAPONS.CLUSTER.COLOR;
+  for (const b of state.clusterBombs) {
+    if (!b.alive) continue;
+    const bx = b.prevPos.x + (b.pos.x - b.prevPos.x) * alpha;
+    const by = b.prevPos.y + (b.pos.y - b.prevPos.y) * alpha;
+    const sx = halfW + (bx - camX);
+    const sy = halfH + (by - camY);
+    ctx.beginPath();
+    ctx.arc(sx, sy, b.radius, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+function drawRepulsorPulse(
+  ctx: CanvasRenderingContext2D,
+  state: GameState,
+  camX: number,
+  camY: number
+): void {
+  const w = findRepulsorWeapon(state);
+  if (!w || w.pulseVizTtl <= 0) return;
+  const { width, height } = state.viewport;
+  const sx = width / 2 + (state.player.pos.x - camX);
+  const sy = height / 2 + (state.player.pos.y - camY);
+
+  const t = 1 - w.pulseVizTtl / WEAPONS.REPULSOR.VIZ_DURATION;
+  const radius = w.pulseVizRadius * t;
+  const alpha = w.pulseVizTtl / WEAPONS.REPULSOR.VIZ_DURATION;
+
+  const prev = ctx.globalAlpha;
+  ctx.globalAlpha = alpha;
+  ctx.lineWidth = 3;
+  ctx.strokeStyle = WEAPONS.REPULSOR.COLOR;
+  ctx.beginPath();
+  ctx.arc(sx, sy, radius, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.globalAlpha = prev;
+}
+
+function drawSwordSwing(
+  ctx: CanvasRenderingContext2D,
+  state: GameState,
+  camX: number,
+  camY: number
+): void {
+  const w = findSwordWeapon(state);
+  if (!w || w.swingTtl <= 0) return;
+  const { width, height } = state.viewport;
+  const sx = width / 2 + (state.player.pos.x - camX);
+  const sy = height / 2 + (state.player.pos.y - camY);
+
+  const dur = WEAPONS.SWORD.SWING_DURATION;
+  const progress = 1 - w.swingTtl / dur;
+  const leadingAngle =
+    w.swingFromAngle + (w.swingToAngle - w.swingFromAngle) * progress;
+  const alpha = Math.min(1, (w.swingTtl / dur) * 1.6);
+
+  const prev = ctx.globalAlpha;
+  ctx.globalAlpha = alpha * 0.55;
+  ctx.fillStyle = WEAPONS.SWORD.COLOR;
+  ctx.beginPath();
+  ctx.moveTo(sx, sy);
+  ctx.arc(sx, sy, w.swingRange, w.swingFromAngle, leadingAngle);
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.globalAlpha = alpha;
+  ctx.lineWidth = 3;
+  ctx.strokeStyle = WEAPONS.SWORD.COLOR;
+  ctx.beginPath();
+  ctx.moveTo(sx, sy);
+  ctx.lineTo(
+    sx + Math.cos(leadingAngle) * w.swingRange,
+    sy + Math.sin(leadingAngle) * w.swingRange
+  );
+  ctx.stroke();
   ctx.globalAlpha = prev;
 }
 
@@ -1410,6 +1557,17 @@ function drawWeaponStats(ctx: CanvasRenderingContext2D, state: GameState): void 
     lines.push(`  DMG    ${orb.damage.toFixed(1)}`);
     lines.push(`  SPIN   ${orb.rotationSpeed.toFixed(2)}`);
     lines.push(`  COUNT  ${orb.orbCount}`);
+  }
+
+  const p = state.player;
+  const passiveParts: string[] = [];
+  if (p.critChance > 0) passiveParts.push(`Crit ${Math.round(p.critChance * 100)}%`);
+  if (p.berserkerStacks > 0) passiveParts.push(`Berserker ${p.berserkerStacks}`);
+  if (p.thornsStacks > 0) passiveParts.push(`Thorns ${p.thornsStacks}`);
+  if (p.ironSkinStacks > 0) passiveParts.push(`Iron ${p.ironSkinStacks}`);
+  if (passiveParts.length > 0) {
+    if (lines.length > 0) lines.push("");
+    lines.push(passiveParts.join(" / "));
   }
 
   ctx.font = HUD_FONT;

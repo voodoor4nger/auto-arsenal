@@ -98,6 +98,26 @@ export const GLASS_CANNON_DAMAGE_MULT = 1.4;
 export const GLASS_CANNON_HP_PENALTY = 20;
 
 export const PASSIVE_PICK_CHANCE = 0.5;
+
+export const CRIT_CHANCE_DEFAULT = 0;
+export const CRIT_MULT_DEFAULT = 2.0;
+export const CRIT_STACK = 0.15;
+export const CRIT_MAX_STACKS = 5;
+export const CRIT_FLASH_DURATION = 0.06;
+export const CRIT_FLASH_COLOR = "#ffd86b";
+export const CRIT_FLASH_RADIUS_MULT = 1.35;
+
+export const BERSERKER_STACK = 0.15;
+export const BERSERKER_MAX_STACKS = 4;
+export const BERSERKER_HP_THRESHOLD = 0.5;
+export const BERSERKER_VIGNETTE_INNER = "rgba(226, 59, 59, 0)";
+export const BERSERKER_VIGNETTE_OUTER = "rgba(226, 59, 59, 0.32)";
+
+export const THORNS_STACK = 0.25;
+export const THORNS_MAX_STACKS = 4;
+
+export const IRON_SKIN_STACK = 0.10;
+export const IRON_SKIN_MAX_STACKS = 4;
 export const WEAPON_SLOT_MAX = 3;
 export const WEAPON_NAME_PROJECTILE = "BOLT";
 export const WEAPON_NAME_ORB = "ORB";
@@ -370,6 +390,60 @@ export const WEAPONS = {
       BIGGER_BOOM_MAX_BONUS: 75,
       FASTER_RELOAD_STEP: 0.3,
       FASTER_RELOAD_MAX: 1.5,
+    },
+  },
+  CLUSTER: {
+    NAME: "CLUSTER",
+    COLOR: "#666b75",
+    FRAGMENT_COLOR: "#9095a0",
+    BOMB_RADIUS: 7,
+    FRAGMENT_RADIUS: 3,
+    IMPACT_DAMAGE: 25,
+    FRAGMENT_DAMAGE: 12,
+    FRAGMENT_COUNT: 6,
+    FIRE_RATE: 0.6,
+    PROJECTILE_SPEED: 320,
+    FRAGMENT_SPEED: 280,
+    FRAGMENT_LIFETIME: 0.6,
+    BOMB_LIFETIME: 1.2,
+    MODS: {
+      HEAVIER_MULT: 1.30,
+      MORE_FRAG_STEP: 2,
+      MORE_FRAG_MAX_BONUS: 6,
+      FASTER_FUSE_STEP: 0.2,
+      FASTER_FUSE_MAX: 1.5,
+    },
+  },
+  REPULSOR: {
+    NAME: "PULSE",
+    COLOR: "#a8d8ff",
+    DAMAGE: 8,
+    RADIUS: 120,
+    PUSH_DISTANCE: 60,
+    PULSE_RATE: 1.25,
+    VIZ_DURATION: 0.4,
+    MODS: {
+      STRONGER_MULT: 1.40,
+      WIDER_STEP: 30,
+      WIDER_MAX_BONUS: 90,
+      HARDER_STEP: 30,
+      HARDER_MAX_BONUS: 90,
+    },
+  },
+  SWORD: {
+    NAME: "SWORD",
+    COLOR: "#e0e8ff",
+    DAMAGE: 22,
+    RANGE: 100,
+    ARC_DEGREES: 160,
+    FIRE_RATE: 1.0,
+    SWING_DURATION: 0.15,
+    MODS: {
+      SHARPER_MULT: 1.35,
+      WIDER_STEP_DEG: 30,
+      WIDER_MAX_BONUS_DEG: 90,
+      FASTER_STEP: 0.3,
+      FASTER_MAX: 2,
     },
   },
 } as const;

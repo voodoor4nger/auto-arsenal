@@ -2,13 +2,16 @@ import type { GameState } from "./game";
 import type {
   AuraWeapon,
   BoomerangWeapon,
+  ClusterBombWeapon,
   LaserWeapon,
   LightningWeapon,
   MachineGunWeapon,
   MinesWeapon,
   OrbWeapon,
   ProjectileWeapon,
+  RepulsorWeapon,
   RocketLauncherWeapon,
+  SwordWeapon,
   Weapon,
   WeaponType,
 } from "./types";
@@ -43,6 +46,7 @@ export type WeaponDef = {
   name: string;
   color: string;
   isStarter: boolean;
+  starterOnly?: boolean;
   create: () => Weapon;
   summonMod: Mod;
   mods: Mod[];
@@ -87,11 +91,24 @@ export function findRocketLauncherWeapon(state: GameState): RocketLauncherWeapon
   return state.player.weapons.find((w): w is RocketLauncherWeapon => w.type === "rocket");
 }
 
+export function findClusterBombWeapon(state: GameState): ClusterBombWeapon | undefined {
+  return state.player.weapons.find((w): w is ClusterBombWeapon => w.type === "clusterBomb");
+}
+
+export function findRepulsorWeapon(state: GameState): RepulsorWeapon | undefined {
+  return state.player.weapons.find((w): w is RepulsorWeapon => w.type === "repulsor");
+}
+
+export function findSwordWeapon(state: GameState): SwordWeapon | undefined {
+  return state.player.weapons.find((w): w is SwordWeapon => w.type === "sword");
+}
+
 export const projectileWeaponDef: WeaponDef = {
   type: "projectile",
   name: WEAPON_NAME_PROJECTILE,
   color: PROJECTILE_COLOR,
   isStarter: true,
+  starterOnly: true,
   create: () => ({
     type: "projectile",
     damage: WEAPON_STARTER_DAMAGE,
@@ -542,6 +559,7 @@ export const laserWeaponDef: WeaponDef = {
   name: WEAPONS.LASER.NAME,
   color: WEAPONS.LASER.COLOR,
   isStarter: false,
+  starterOnly: true,
   create: () => ({
     type: "laser",
     damage: WEAPONS.LASER.DAMAGE,
@@ -617,6 +635,7 @@ export const machineGunWeaponDef: WeaponDef = {
   name: WEAPONS.MG.NAME,
   color: WEAPONS.MG.COLOR,
   isStarter: false,
+  starterOnly: true,
   create: () => ({
     type: "mg",
     damage: WEAPONS.MG.DAMAGE,
@@ -691,6 +710,7 @@ export const rocketLauncherWeaponDef: WeaponDef = {
   name: WEAPONS.ROCKET.NAME,
   color: WEAPONS.ROCKET.COLOR,
   isStarter: false,
+  starterOnly: true,
   create: () => ({
     type: "rocket",
     impactDamage: WEAPONS.ROCKET.IMPACT_DAMAGE,
@@ -767,6 +787,256 @@ export const rocketLauncherWeaponDef: WeaponDef = {
   ],
 };
 
+export const clusterBombWeaponDef: WeaponDef = {
+  type: "clusterBomb",
+  name: WEAPONS.CLUSTER.NAME,
+  color: WEAPONS.CLUSTER.COLOR,
+  isStarter: false,
+  create: () => ({
+    type: "clusterBomb",
+    impactDamage: WEAPONS.CLUSTER.IMPACT_DAMAGE,
+    fragmentDamage: WEAPONS.CLUSTER.FRAGMENT_DAMAGE,
+    fragmentCount: WEAPONS.CLUSTER.FRAGMENT_COUNT,
+    fireRate: WEAPONS.CLUSTER.FIRE_RATE,
+    cooldownRemaining: 0,
+  }),
+  getStats: (w) => {
+    const c = w as ClusterBombWeapon;
+    return `DMG ${c.impactDamage.toFixed(1)}  FRAG ${c.fragmentCount}`;
+  },
+  summonMod: {
+    id: "summon_cluster",
+    name: "Summon Cluster Bomb",
+    desc: "Fragmenting projectile",
+    category: "weapon",
+    isSummon: true,
+    eligible: () => true,
+    apply: (s) => s.player.weapons.push(clusterBombWeaponDef.create()),
+  },
+  mods: [
+    {
+      id: "cluster_heavier",
+      name: "Heavier Charge",
+      desc: "+30% cluster damage (impact + fragments)",
+      category: "weapon",
+      isDamageRelevant: true,
+      eligible: () => true,
+      apply: (s) => {
+        const w = findClusterBombWeapon(s);
+        if (!w) return;
+        w.impactDamage *= WEAPONS.CLUSTER.MODS.HEAVIER_MULT;
+        w.fragmentDamage *= WEAPONS.CLUSTER.MODS.HEAVIER_MULT;
+      },
+    },
+    {
+      id: "cluster_more_frag",
+      name: "More Fragments",
+      desc: `+${WEAPONS.CLUSTER.MODS.MORE_FRAG_STEP} fragments (max +${WEAPONS.CLUSTER.MODS.MORE_FRAG_MAX_BONUS})`,
+      category: "weapon",
+      isDamageRelevant: true,
+      eligible: (s) => {
+        const w = findClusterBombWeapon(s);
+        return (
+          !!w &&
+          w.fragmentCount <
+            WEAPONS.CLUSTER.FRAGMENT_COUNT + WEAPONS.CLUSTER.MODS.MORE_FRAG_MAX_BONUS
+        );
+      },
+      apply: (s) => {
+        const w = findClusterBombWeapon(s)!;
+        const cap =
+          WEAPONS.CLUSTER.FRAGMENT_COUNT + WEAPONS.CLUSTER.MODS.MORE_FRAG_MAX_BONUS;
+        w.fragmentCount = Math.min(cap, w.fragmentCount + WEAPONS.CLUSTER.MODS.MORE_FRAG_STEP);
+      },
+    },
+    {
+      id: "cluster_faster_fuse",
+      name: "Faster Fuse",
+      desc: `+${WEAPONS.CLUSTER.MODS.FASTER_FUSE_STEP}/sec fire rate (max ${WEAPONS.CLUSTER.MODS.FASTER_FUSE_MAX})`,
+      category: "weapon",
+      isDamageRelevant: true,
+      eligible: (s) => {
+        const w = findClusterBombWeapon(s);
+        return !!w && w.fireRate < WEAPONS.CLUSTER.MODS.FASTER_FUSE_MAX - 1e-6;
+      },
+      apply: (s) => {
+        const w = findClusterBombWeapon(s)!;
+        w.fireRate = Math.min(
+          WEAPONS.CLUSTER.MODS.FASTER_FUSE_MAX,
+          w.fireRate + WEAPONS.CLUSTER.MODS.FASTER_FUSE_STEP
+        );
+      },
+    },
+  ],
+};
+
+export const repulsorWeaponDef: WeaponDef = {
+  type: "repulsor",
+  name: WEAPONS.REPULSOR.NAME,
+  color: WEAPONS.REPULSOR.COLOR,
+  isStarter: false,
+  create: () => ({
+    type: "repulsor",
+    damage: WEAPONS.REPULSOR.DAMAGE,
+    radius: WEAPONS.REPULSOR.RADIUS,
+    pushDistance: WEAPONS.REPULSOR.PUSH_DISTANCE,
+    pulseRate: WEAPONS.REPULSOR.PULSE_RATE,
+    pulseCooldown: 1 / WEAPONS.REPULSOR.PULSE_RATE,
+    pulseVizTtl: 0,
+    pulseVizRadius: WEAPONS.REPULSOR.RADIUS,
+  }),
+  getStats: (w) => {
+    const r = w as RepulsorWeapon;
+    return `DMG ${r.damage.toFixed(1)}  R ${Math.round(r.radius)}`;
+  },
+  summonMod: {
+    id: "summon_repulsor",
+    name: "Summon Repulsor",
+    desc: "Damaging push pulse",
+    category: "weapon",
+    isSummon: true,
+    eligible: () => true,
+    apply: (s) => s.player.weapons.push(repulsorWeaponDef.create()),
+  },
+  mods: [
+    {
+      id: "repulsor_stronger",
+      name: "Stronger Pulse",
+      desc: "+40% repulsor damage",
+      category: "weapon",
+      isDamageRelevant: true,
+      eligible: () => true,
+      apply: (s) => {
+        const w = findRepulsorWeapon(s);
+        if (w) w.damage *= WEAPONS.REPULSOR.MODS.STRONGER_MULT;
+      },
+    },
+    {
+      id: "repulsor_wider",
+      name: "Wider Field",
+      desc: `+${WEAPONS.REPULSOR.MODS.WIDER_STEP}px radius (max +${WEAPONS.REPULSOR.MODS.WIDER_MAX_BONUS})`,
+      category: "weapon",
+      isDamageRelevant: true,
+      eligible: (s) => {
+        const w = findRepulsorWeapon(s);
+        return (
+          !!w &&
+          w.radius < WEAPONS.REPULSOR.RADIUS + WEAPONS.REPULSOR.MODS.WIDER_MAX_BONUS - 1e-6
+        );
+      },
+      apply: (s) => {
+        const w = findRepulsorWeapon(s)!;
+        const cap = WEAPONS.REPULSOR.RADIUS + WEAPONS.REPULSOR.MODS.WIDER_MAX_BONUS;
+        w.radius = Math.min(cap, w.radius + WEAPONS.REPULSOR.MODS.WIDER_STEP);
+      },
+    },
+    {
+      id: "repulsor_harder",
+      name: "Harder Push",
+      desc: `+${WEAPONS.REPULSOR.MODS.HARDER_STEP}px push (max +${WEAPONS.REPULSOR.MODS.HARDER_MAX_BONUS})`,
+      category: "weapon",
+      eligible: (s) => {
+        const w = findRepulsorWeapon(s);
+        return (
+          !!w &&
+          w.pushDistance <
+            WEAPONS.REPULSOR.PUSH_DISTANCE + WEAPONS.REPULSOR.MODS.HARDER_MAX_BONUS - 1e-6
+        );
+      },
+      apply: (s) => {
+        const w = findRepulsorWeapon(s)!;
+        const cap =
+          WEAPONS.REPULSOR.PUSH_DISTANCE + WEAPONS.REPULSOR.MODS.HARDER_MAX_BONUS;
+        w.pushDistance = Math.min(cap, w.pushDistance + WEAPONS.REPULSOR.MODS.HARDER_STEP);
+      },
+    },
+  ],
+};
+
+export const swordWeaponDef: WeaponDef = {
+  type: "sword",
+  name: WEAPONS.SWORD.NAME,
+  color: WEAPONS.SWORD.COLOR,
+  isStarter: false,
+  create: () => ({
+    type: "sword",
+    damage: WEAPONS.SWORD.DAMAGE,
+    range: WEAPONS.SWORD.RANGE,
+    arcAngle: WEAPONS.SWORD.ARC_DEGREES,
+    fireRate: WEAPONS.SWORD.FIRE_RATE,
+    cooldownRemaining: 0,
+    swingTtl: 0,
+    swingFromAngle: 0,
+    swingToAngle: 0,
+    swingRange: WEAPONS.SWORD.RANGE,
+  }),
+  getStats: (w) => {
+    const s = w as SwordWeapon;
+    return `DMG ${s.damage.toFixed(1)}  ARC ${Math.round(s.arcAngle)}°`;
+  },
+  summonMod: {
+    id: "summon_sword",
+    name: "Summon Sword",
+    desc: "Sweeping melee arc",
+    category: "weapon",
+    isSummon: true,
+    eligible: () => true,
+    apply: (s) => s.player.weapons.push(swordWeaponDef.create()),
+  },
+  mods: [
+    {
+      id: "sword_sharper",
+      name: "Sharper Blade",
+      desc: "+35% sword damage",
+      category: "weapon",
+      isDamageRelevant: true,
+      eligible: () => true,
+      apply: (s) => {
+        const w = findSwordWeapon(s);
+        if (w) w.damage *= WEAPONS.SWORD.MODS.SHARPER_MULT;
+      },
+    },
+    {
+      id: "sword_wider",
+      name: "Wider Swing",
+      desc: `+${WEAPONS.SWORD.MODS.WIDER_STEP_DEG}° arc (max +${WEAPONS.SWORD.MODS.WIDER_MAX_BONUS_DEG})`,
+      category: "weapon",
+      isDamageRelevant: true,
+      eligible: (s) => {
+        const w = findSwordWeapon(s);
+        return (
+          !!w &&
+          w.arcAngle <
+            WEAPONS.SWORD.ARC_DEGREES + WEAPONS.SWORD.MODS.WIDER_MAX_BONUS_DEG - 1e-6
+        );
+      },
+      apply: (s) => {
+        const w = findSwordWeapon(s)!;
+        const cap = WEAPONS.SWORD.ARC_DEGREES + WEAPONS.SWORD.MODS.WIDER_MAX_BONUS_DEG;
+        w.arcAngle = Math.min(cap, w.arcAngle + WEAPONS.SWORD.MODS.WIDER_STEP_DEG);
+      },
+    },
+    {
+      id: "sword_faster",
+      name: "Faster Swing",
+      desc: `+${WEAPONS.SWORD.MODS.FASTER_STEP}/sec swings (max ${WEAPONS.SWORD.MODS.FASTER_MAX})`,
+      category: "weapon",
+      isDamageRelevant: true,
+      eligible: (s) => {
+        const w = findSwordWeapon(s);
+        return !!w && w.fireRate < WEAPONS.SWORD.MODS.FASTER_MAX - 1e-6;
+      },
+      apply: (s) => {
+        const w = findSwordWeapon(s)!;
+        w.fireRate = Math.min(
+          WEAPONS.SWORD.MODS.FASTER_MAX,
+          w.fireRate + WEAPONS.SWORD.MODS.FASTER_STEP
+        );
+      },
+    },
+  ],
+};
+
 export const WEAPON_DEFS: WeaponDef[] = [
   projectileWeaponDef,
   orbWeaponDef,
@@ -777,6 +1047,9 @@ export const WEAPON_DEFS: WeaponDef[] = [
   laserWeaponDef,
   machineGunWeaponDef,
   rocketLauncherWeaponDef,
+  clusterBombWeaponDef,
+  repulsorWeaponDef,
+  swordWeaponDef,
 ];
 
 export function getOwnedWeaponDefs(state: GameState): WeaponDef[] {
@@ -793,5 +1066,7 @@ export function getOwnedWeaponMods(state: GameState): Mod[] {
 export function getEligibleSummonMods(state: GameState): Mod[] {
   if (state.player.weapons.length >= WEAPON_SLOT_MAX) return [];
   const owned = new Set(state.player.weapons.map((w) => w.type));
-  return WEAPON_DEFS.filter((d) => !owned.has(d.type)).map((d) => d.summonMod);
+  return WEAPON_DEFS.filter((d) => !owned.has(d.type) && !d.starterOnly).map(
+    (d) => d.summonMod
+  );
 }

@@ -28,7 +28,10 @@ export type WeaponType =
   | "mines"
   | "laser"
   | "mg"
-  | "rocket";
+  | "rocket"
+  | "clusterBomb"
+  | "repulsor"
+  | "sword";
 
 export type ProjectileWeapon = {
   type: "projectile";
@@ -113,6 +116,39 @@ export type RocketLauncherWeapon = {
   cooldownRemaining: number;
 };
 
+export type ClusterBombWeapon = {
+  type: "clusterBomb";
+  impactDamage: number;
+  fragmentDamage: number;
+  fragmentCount: number;
+  fireRate: number;
+  cooldownRemaining: number;
+};
+
+export type RepulsorWeapon = {
+  type: "repulsor";
+  damage: number;
+  radius: number;
+  pushDistance: number;
+  pulseRate: number;
+  pulseCooldown: number;
+  pulseVizTtl: number;
+  pulseVizRadius: number;
+};
+
+export type SwordWeapon = {
+  type: "sword";
+  damage: number;
+  range: number;
+  arcAngle: number;
+  fireRate: number;
+  cooldownRemaining: number;
+  swingTtl: number;
+  swingFromAngle: number;
+  swingToAngle: number;
+  swingRange: number;
+};
+
 export type Weapon =
   | ProjectileWeapon
   | OrbWeapon
@@ -122,7 +158,10 @@ export type Weapon =
   | MinesWeapon
   | LaserWeapon
   | MachineGunWeapon
-  | RocketLauncherWeapon;
+  | RocketLauncherWeapon
+  | ClusterBombWeapon
+  | RepulsorWeapon
+  | SwordWeapon;
 
 export type Player = Entity & {
   kind: "player";
@@ -140,6 +179,11 @@ export type Player = Entity & {
   globalDamageMult: number;
   rerollTokens: number;
   runScrap: number;
+  critChance: number;
+  critMult: number;
+  berserkerStacks: number;
+  thornsStacks: number;
+  ironSkinStacks: number;
 };
 
 export type Orb = Entity & {
@@ -190,6 +234,16 @@ export type Rocket = Entity & {
   explosionTtl: number;
 };
 
+export type ClusterBomb = Entity & {
+  kind: "clusterBomb";
+  impactDamage: number;
+  fragmentDamage: number;
+  fragmentCount: number;
+  fragmentSpeed: number;
+  fragmentLifetime: number;
+  ttl: number;
+};
+
 export type ExtractionZone = {
   pos: Vec2;
   radius: number;
@@ -204,6 +258,7 @@ type EnemyBase = Entity & {
   hp: number;
   damage: number;
   speed: number;
+  critFlashTtl: number;
 };
 
 export type Chaser = EnemyBase & { species: "chaser" };

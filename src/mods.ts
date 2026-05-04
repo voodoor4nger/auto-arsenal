@@ -1,15 +1,23 @@
 import type { GameState } from "./game";
 import { getEligibleSummonMods, getOwnedWeaponMods } from "./weapons";
 import {
+  BERSERKER_MAX_STACKS,
+  BERSERKER_STACK,
+  CRIT_MAX_STACKS,
+  CRIT_STACK,
   GLASS_CANNON_DAMAGE_MULT,
   GLASS_CANNON_HP_PENALTY,
   GREED_STEP,
+  IRON_SKIN_MAX_STACKS,
+  IRON_SKIN_STACK,
   MAGNET_STEP,
   PASSIVE_PICK_CHANCE,
   PLAYER_SPEED,
   REGEN_STEP,
   SWIFT_MAX_FRACTION,
   SWIFT_STEP,
+  THORNS_MAX_STACKS,
+  THORNS_STACK,
   VITALITY_HP,
 } from "./constants";
 
@@ -80,6 +88,61 @@ export const PASSIVE_MODS: Mod[] = [
     },
   },
   {
+    id: "crit",
+    name: "Crit",
+    desc: `+${Math.round(CRIT_STACK * 100)}% crit chance (max ${Math.round(CRIT_STACK * CRIT_MAX_STACKS * 100)}%)`,
+    category: "passive",
+    isDamageRelevant: true,
+    eligible: (s) => s.player.critChance < CRIT_STACK * CRIT_MAX_STACKS - 1e-6,
+    apply: (s) => {
+      s.player.critChance = Math.min(
+        CRIT_STACK * CRIT_MAX_STACKS,
+        s.player.critChance + CRIT_STACK
+      );
+    },
+  },
+  {
+    id: "berserker",
+    name: "Berserker",
+    desc: `+${Math.round(BERSERKER_STACK * 100)}% damage below 50% HP (max ${BERSERKER_MAX_STACKS} stacks)`,
+    category: "passive",
+    isDamageRelevant: true,
+    eligible: (s) => s.player.berserkerStacks < BERSERKER_MAX_STACKS,
+    apply: (s) => {
+      s.player.berserkerStacks = Math.min(
+        BERSERKER_MAX_STACKS,
+        s.player.berserkerStacks + 1
+      );
+    },
+  },
+  {
+    id: "thorns",
+    name: "Thorns",
+    desc: `+${Math.round(THORNS_STACK * 100)}% contact reflect (max ${THORNS_MAX_STACKS} stacks)`,
+    category: "passive",
+    isDamageRelevant: true,
+    eligible: (s) => s.player.thornsStacks < THORNS_MAX_STACKS,
+    apply: (s) => {
+      s.player.thornsStacks = Math.min(
+        THORNS_MAX_STACKS,
+        s.player.thornsStacks + 1
+      );
+    },
+  },
+  {
+    id: "iron_skin",
+    name: "Iron Skin",
+    desc: `-${Math.round(IRON_SKIN_STACK * 100)}% damage taken (max ${IRON_SKIN_MAX_STACKS} stacks)`,
+    category: "passive",
+    eligible: (s) => s.player.ironSkinStacks < IRON_SKIN_MAX_STACKS,
+    apply: (s) => {
+      s.player.ironSkinStacks = Math.min(
+        IRON_SKIN_MAX_STACKS,
+        s.player.ironSkinStacks + 1
+      );
+    },
+  },
+  {
     id: "glass_cannon",
     name: "Glass Cannon",
     desc: `+${Math.round((GLASS_CANNON_DAMAGE_MULT - 1) * 100)}% damage, -${GLASS_CANNON_HP_PENALTY} max HP`,
@@ -91,6 +154,9 @@ export const PASSIVE_MODS: Mod[] = [
         if (w.type === "rocket") {
           w.impactDamage *= GLASS_CANNON_DAMAGE_MULT;
           w.explosionDamage *= GLASS_CANNON_DAMAGE_MULT;
+        } else if (w.type === "clusterBomb") {
+          w.impactDamage *= GLASS_CANNON_DAMAGE_MULT;
+          w.fragmentDamage *= GLASS_CANNON_DAMAGE_MULT;
         } else {
           w.damage *= GLASS_CANNON_DAMAGE_MULT;
         }

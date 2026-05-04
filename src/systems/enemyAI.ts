@@ -7,6 +7,7 @@ export function updateEnemyAI(state: GameState, dt: number): void {
 
   for (const e of state.enemies) {
     if (!e.alive) continue;
+    if (e.critFlashTtl > 0) e.critFlashTtl = Math.max(0, e.critFlashTtl - dt);
     e.prevPos.x = e.pos.x;
     e.prevPos.y = e.pos.y;
 
