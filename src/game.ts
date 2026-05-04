@@ -16,9 +16,6 @@ import type {
 } from "./types";
 import {
   BG_COLOR,
-  BUTTON_BG,
-  BUTTON_BG_HOVER,
-  BUTTON_BORDER,
   BUTTON_FONT,
   BUTTON_H,
   BUTTON_W,
@@ -74,6 +71,12 @@ import {
   EXTRACT_INNER_RADIUS_MIN,
   EXTRACT_PULSE_HZ,
   EXTRACT_PULSE_PERIOD,
+  PAUSE_BUTTON_BG,
+  PAUSE_BUTTON_BG_HOVER,
+  PAUSE_BUTTON_BORDER,
+  PAUSE_BUTTON_ICON,
+  PAUSE_BUTTON_SIZE,
+  PAUSE_HINT_FONT,
   WIPE_SAVE_COLOR,
   WIPE_SAVE_FONT,
   WORKSHOP_BUY_BG,
@@ -337,6 +340,13 @@ function loseRun(state: GameState): void {
 }
 
 export function updateGame(state: GameState, dt: number): void {
+  if (
+    (state.input.justPressed.has("KeyP") || state.input.justPressed.has("Escape")) &&
+    (state.phase === "playing" || state.phase === "paused")
+  ) {
+    state.phase = state.phase === "playing" ? "paused" : "playing";
+  }
+
   switch (state.phase) {
     case "title":
       handleTitleClick(state);
@@ -360,9 +370,48 @@ export function updateGame(state: GameState, dt: number): void {
       clearJustPressed(state.input);
       return;
     case "playing":
+      if (
+        state.input.mouseClicked &&
+        pointInRect(state.input.mouse, getPauseButtonRect(state))
+      ) {
+        state.phase = "paused";
+        clearJustPressed(state.input);
+        return;
+      }
       tickPlaying(state, dt);
       clearJustPressed(state.input);
       return;
+    case "paused":
+      handlePauseClick(state);
+      clearJustPressed(state.input);
+      return;
+  }
+}
+
+function getPauseButtonRect(state: GameState): Rect {
+  return {
+    x: state.viewport.width - PAUSE_BUTTON_SIZE - 12,
+    y: 12,
+    w: PAUSE_BUTTON_SIZE,
+    h: PAUSE_BUTTON_SIZE,
+  };
+}
+
+function getResumeButtonRect(state: GameState): Rect {
+  const { width, height } = state.viewport;
+  return {
+    x: (width - BUTTON_W) / 2,
+    y: height / 2 + 40,
+    w: BUTTON_W,
+    h: BUTTON_H,
+  };
+}
+
+function handlePauseClick(state: GameState): void {
+  if (!state.input.mouseClicked) return;
+  const m = state.input.mouse;
+  if (pointInRect(m, getResumeButtonRect(state)) || pointInRect(m, getPauseButtonRect(state))) {
+    state.phase = "playing";
   }
 }
 
@@ -408,10 +457,13 @@ function tickPlaying(state: GameState, dt: number): void {
 
 function handleEndScreenClick(state: GameState): void {
   if (!state.input.mouseClicked) return;
-  const r = getPlayAgainRect(state);
   const m = state.input.mouse;
-  if (m.x >= r.x && m.x <= r.x + r.w && m.y >= r.y && m.y <= r.y + r.h) {
+  if (pointInRect(m, getPlayAgainRect(state))) {
     startNewRun(state);
+    return;
+  }
+  if (pointInRect(m, getEndScreenWorkshopRect(state))) {
+    state.phase = "workshop";
   }
 }
 
@@ -423,8 +475,22 @@ function pointInRect(p: { x: number; y: number }, r: Rect): boolean {
 
 function getPlayAgainRect(state: GameState): Rect {
   const { width, height } = state.viewport;
+  const totalW = 2 * BUTTON_W + 12;
+  const startX = (width - totalW) / 2;
   return {
-    x: (width - BUTTON_W) / 2,
+    x: startX + BUTTON_W + 12,
+    y: height / 2 + 130,
+    w: BUTTON_W,
+    h: BUTTON_H,
+  };
+}
+
+function getEndScreenWorkshopRect(state: GameState): Rect {
+  const { width, height } = state.viewport;
+  const totalW = 2 * BUTTON_W + 12;
+  const startX = (width - totalW) / 2;
+  return {
+    x: startX,
     y: height / 2 + 130,
     w: BUTTON_W,
     h: BUTTON_H,
@@ -659,9 +725,65 @@ export function renderGame(
   drawExtractionArrow(ctx, state, camX, camY);
   drawHud(ctx, state);
 
+  if (state.phase === "playing" || state.phase === "paused") {
+    drawPauseButton(ctx, state);
+  }
+
   if (state.phase === "levelup") drawLevelUpModal(ctx, state);
+  else if (state.phase === "paused") drawPauseOverlay(ctx, state);
   else if (state.phase === "extracted") drawEndScreen(ctx, state, "extracted");
   else if (state.phase === "lost") drawEndScreen(ctx, state, "lost");
+}
+
+function drawPauseButton(ctx: CanvasRenderingContext2D, state: GameState): void {
+  const r = getPauseButtonRect(state);
+  const hover = pointInRect(state.input.mouse, r);
+  ctx.fillStyle = hover ? PAUSE_BUTTON_BG_HOVER : PAUSE_BUTTON_BG;
+  ctx.fillRect(r.x, r.y, r.w, r.h);
+  ctx.lineWidth = 2;
+  ctx.strokeStyle = PAUSE_BUTTON_BORDER;
+  ctx.strokeRect(r.x + 1, r.y + 1, r.w - 2, r.h - 2);
+
+  ctx.fillStyle = PAUSE_BUTTON_ICON;
+  if (state.phase === "paused") {
+    // Play triangle
+    const cx = r.x + r.w / 2;
+    const cy = r.y + r.h / 2;
+    const s = r.w * 0.28;
+    ctx.beginPath();
+    ctx.moveTo(cx - s * 0.6, cy - s);
+    ctx.lineTo(cx + s, cy);
+    ctx.lineTo(cx - s * 0.6, cy + s);
+    ctx.closePath();
+    ctx.fill();
+  } else {
+    // Pause bars
+    const cx = r.x + r.w / 2;
+    const cy = r.y + r.h / 2;
+    const w = 4;
+    const h = r.h * 0.42;
+    ctx.fillRect(cx - 7, cy - h / 2, w, h);
+    ctx.fillRect(cx + 3, cy - h / 2, w, h);
+  }
+}
+
+function drawPauseOverlay(ctx: CanvasRenderingContext2D, state: GameState): void {
+  const { width, height } = state.viewport;
+
+  ctx.fillStyle = MODAL_BG;
+  ctx.fillRect(0, 0, width, height);
+
+  ctx.font = END_TITLE_FONT;
+  ctx.fillStyle = MODAL_TEXT;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText("PAUSED", width / 2, height / 2 - 40);
+
+  ctx.font = PAUSE_HINT_FONT;
+  ctx.fillStyle = MODAL_DESC_TEXT;
+  ctx.fillText("Press P or Esc to resume", width / 2, height / 2 + 8);
+
+  drawButton(ctx, getResumeButtonRect(state), "Resume", state.input.mouse, false);
 }
 
 function drawGrid(
@@ -1654,16 +1776,6 @@ function drawEndScreen(
     }
   }
 
-  const r = getPlayAgainRect(state);
-  const mx = state.input.mouse.x;
-  const my = state.input.mouse.y;
-  const hover = mx >= r.x && mx <= r.x + r.w && my >= r.y && my <= r.y + r.h;
-  ctx.fillStyle = hover ? BUTTON_BG_HOVER : BUTTON_BG;
-  ctx.fillRect(r.x, r.y, r.w, r.h);
-  ctx.lineWidth = 2;
-  ctx.strokeStyle = BUTTON_BORDER;
-  ctx.strokeRect(r.x + 1, r.y + 1, r.w - 2, r.h - 2);
-  ctx.font = BUTTON_FONT;
-  ctx.fillStyle = MODAL_TEXT;
-  ctx.fillText("Play Again", r.x + r.w / 2, r.y + r.h / 2);
+  drawButton(ctx, getEndScreenWorkshopRect(state), "Workshop", state.input.mouse, false);
+  drawButton(ctx, getPlayAgainRect(state), "Play Again", state.input.mouse, false);
 }

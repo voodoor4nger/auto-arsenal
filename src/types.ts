@@ -1,6 +1,7 @@
 export type Phase =
   | "title"
   | "playing"
+  | "paused"
   | "levelup"
   | "extracted"
   | "lost"

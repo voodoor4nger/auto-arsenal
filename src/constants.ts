@@ -123,6 +123,13 @@ export const EXTRACT_ACTIVE_FONT = "bold 24px ui-monospace, Menlo, monospace";
 export const EXTRACT_PULSE_HZ = 2;
 export const SCRAP_LOST_COLOR = "#e23b3b";
 
+export const PAUSE_BUTTON_SIZE = 36;
+export const PAUSE_BUTTON_BG = "#1c2230";
+export const PAUSE_BUTTON_BG_HOVER = "#2a3548";
+export const PAUSE_BUTTON_BORDER = "#3a4660";
+export const PAUSE_BUTTON_ICON = "#e6e9ef";
+export const PAUSE_HINT_FONT = "16px ui-monospace, Menlo, monospace";
+
 export const UPGRADES = {
   REINFORCED_FRAME: {
     ID: "reinforced_frame",
