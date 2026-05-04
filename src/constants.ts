@@ -107,6 +107,22 @@ export const SCRAP_PER_KILL = 1;
 export const SCRAP_PER_SECOND = 0.5;
 export const SCRAP_PER_LEVEL = 25;
 
+export const EXTRACT_INTERVAL = 3 * 60;
+export const EXTRACT_WINDOW_DURATION = 30;
+export const EXTRACT_SPAWN_DISTANCE = 700;
+export const EXTRACT_RADIUS = 80;
+export const EXTRACT_INNER_RADIUS_MIN = 28;
+export const EXTRACT_INNER_RADIUS_MAX = 56;
+export const EXTRACT_PULSE_PERIOD = 0.6;
+export const EXTRACT_COLOR = "#a8e668";
+export const EXTRACT_MULTIPLIERS = [1.0, 1.4, 1.8, 2.3, 2.9, 3.5] as const;
+export const EXTRACT_MULT_STEP_AFTER = 0.6;
+export const EXTRACT_ARROW_SIZE = 18;
+export const EXTRACT_ARROW_MARGIN = 40;
+export const EXTRACT_ACTIVE_FONT = "bold 24px ui-monospace, Menlo, monospace";
+export const EXTRACT_PULSE_HZ = 2;
+export const SCRAP_LOST_COLOR = "#e23b3b";
+
 export const UPGRADES = {
   REINFORCED_FRAME: {
     ID: "reinforced_frame",
@@ -368,7 +384,6 @@ export const MODAL_CARD_W = 220;
 export const MODAL_CARD_H = 280;
 export const MODAL_CARD_GAP = 24;
 
-export const RUN_DURATION = 8 * 60;
 export const GAME_TITLE = "AUTO ARSENAL";
 export const TITLE_FONT = "bold 64px ui-monospace, Menlo, monospace";
 export const TITLE_HINT_FONT = "20px ui-monospace, Menlo, monospace";

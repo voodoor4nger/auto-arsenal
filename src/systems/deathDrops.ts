@@ -1,11 +1,12 @@
 import type { GameState } from "../game";
 import type { Gem } from "../types";
-import { GEM_RADIUS, GEM_XP_VALUE } from "../constants";
+import { GEM_RADIUS, GEM_XP_VALUE, SCRAP_PER_KILL } from "../constants";
 
 export function updateDeathDrops(state: GameState): void {
   for (const e of state.enemies) {
     if (e.alive) continue;
     state.killCount += 1;
+    state.player.runScrap += SCRAP_PER_KILL;
     state.gems.push(makeGem(state, e.pos.x, e.pos.y));
   }
 }

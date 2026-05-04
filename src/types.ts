@@ -2,7 +2,7 @@ export type Phase =
   | "title"
   | "playing"
   | "levelup"
-  | "won"
+  | "extracted"
   | "lost"
   | "workshop"
   | "weapon-select";
@@ -138,6 +138,7 @@ export type Player = Entity & {
   xpToNext: number;
   globalDamageMult: number;
   rerollTokens: number;
+  runScrap: number;
 };
 
 export type Orb = Entity & {
@@ -186,6 +187,15 @@ export type Rocket = Entity & {
   ttl: number;
   exploded: boolean;
   explosionTtl: number;
+};
+
+export type ExtractionZone = {
+  pos: Vec2;
+  radius: number;
+  ttl: number;
+  ttlMax: number;
+  windowIndex: number;
+  multiplier: number;
 };
 
 type EnemyBase = Entity & {

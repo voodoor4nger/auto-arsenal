@@ -3,6 +3,7 @@ import type {
   Camera,
   Enemy,
   EnemyProjectile,
+  ExtractionZone,
   Gem,
   LaserBeam,
   LightningBolt,
@@ -58,15 +59,21 @@ import {
   XP_MULTIPLIER_DEFAULT,
   PROJECTILE_COLOR,
   PROJECTILE_RADIUS,
-  RUN_DURATION,
   SHOOTER_COLOR,
   SHOOTER_PROJ_COLOR,
   SPAWN_INTERVAL_START,
   TITLE_FONT,
   WEAPONS,
-  SCRAP_PER_KILL,
-  SCRAP_PER_LEVEL,
   SCRAP_PER_SECOND,
+  SCRAP_LOST_COLOR,
+  EXTRACT_ARROW_MARGIN,
+  EXTRACT_ARROW_SIZE,
+  EXTRACT_ACTIVE_FONT,
+  EXTRACT_COLOR,
+  EXTRACT_INNER_RADIUS_MAX,
+  EXTRACT_INNER_RADIUS_MIN,
+  EXTRACT_PULSE_HZ,
+  EXTRACT_PULSE_PERIOD,
   WIPE_SAVE_COLOR,
   WIPE_SAVE_FONT,
   WORKSHOP_BUY_BG,
@@ -123,6 +130,11 @@ import { updateMines } from "./systems/mines";
 import { updateLaser } from "./systems/laser";
 import { updateMachineGun } from "./systems/mg";
 import { updateRockets } from "./systems/rocket";
+import {
+  getExtractMultiplier,
+  nextWindowOpenTime,
+  updateExtraction,
+} from "./systems/extract";
 import {
   findAuraWeapon,
   findOrbWeapon,
@@ -181,8 +193,12 @@ export type GameState = {
   glassCannonTaken: boolean;
   save: SaveData;
   scrapEarnedLastRun: number;
+  scrapLostLastRun: number;
   unlocksThisRun: Achievement[];
   titleWipeRect: Rect | null;
+  extraction: ExtractionZone | null;
+  nextExtractWindow: number;
+  extractMultiplierLastRun: number;
 };
 
 export function initGame(viewport: { width: number; height: number }): GameState {
@@ -212,8 +228,12 @@ export function initGame(viewport: { width: number; height: number }): GameState
     glassCannonTaken: false,
     save: loadSave(),
     scrapEarnedLastRun: 0,
+    scrapLostLastRun: 0,
     unlocksThisRun: [],
     titleWipeRect: null,
+    extraction: null,
+    nextExtractWindow: 1,
+    extractMultiplierLastRun: 0,
   };
   return state;
 }
@@ -240,6 +260,7 @@ function makeInitialPlayer(): Player {
     xpToNext: LEVEL_XP_START,
     globalDamageMult: GLOBAL_DAMAGE_MULT_DEFAULT,
     rerollTokens: 0,
+    runScrap: 0,
   };
 }
 
@@ -264,6 +285,8 @@ function freshRun(state: GameState): void {
   state.killCount = 0;
   state.pickupVizRemaining = 0;
   state.glassCannonTaken = false;
+  state.extraction = null;
+  state.nextExtractWindow = 1;
 }
 
 function findWeaponDefById(id: string): WeaponDef | undefined {
@@ -277,22 +300,40 @@ function startNewRun(state: GameState): void {
   state.player.weapons = [starter.create()];
   applyUpgrades(state, state.save);
   state.scrapEarnedLastRun = 0;
+  state.scrapLostLastRun = 0;
+  state.extractMultiplierLastRun = 0;
   state.unlocksThisRun = [];
   state.phase = "playing";
 }
 
-function endRun(state: GameState, outcome: "won" | "lost"): void {
-  const seconds = Math.min(state.time, RUN_DURATION);
-  const base =
-    state.killCount * SCRAP_PER_KILL +
-    seconds * SCRAP_PER_SECOND +
-    state.player.level * SCRAP_PER_LEVEL;
-  const earned = Math.max(0, Math.floor(base * getSalvageMultiplier(state.save)));
-  state.save.totalScrap += earned;
-  state.scrapEarnedLastRun = earned;
+function extractRun(state: GameState): void {
+  const zone = state.extraction;
+  const mult = zone ? zone.multiplier : 0;
+  const banked = Math.max(
+    0,
+    Math.floor(state.player.runScrap * mult * getSalvageMultiplier(state.save))
+  );
+  state.save.totalScrap += banked;
+  state.scrapEarnedLastRun = banked;
+  state.scrapLostLastRun = 0;
+  state.extractMultiplierLastRun = mult;
+  state.unlocksThisRun = checkAchievements(state);
+  state.extraction = null;
+  writeSave(state.save);
+  state.phase = "extracted";
+}
+
+function loseRun(state: GameState): void {
+  const lost = Math.max(
+    0,
+    Math.floor(state.player.runScrap * getSalvageMultiplier(state.save))
+  );
+  state.scrapEarnedLastRun = 0;
+  state.scrapLostLastRun = lost;
+  state.extractMultiplierLastRun = 0;
   state.unlocksThisRun = checkAchievements(state);
   writeSave(state.save);
-  state.phase = outcome;
+  state.phase = "lost";
 }
 
 export function updateGame(state: GameState, dt: number): void {
@@ -309,7 +350,7 @@ export function updateGame(state: GameState, dt: number): void {
       handleWeaponSelectClick(state);
       clearJustPressed(state.input);
       return;
-    case "won":
+    case "extracted":
     case "lost":
       handleEndScreenClick(state);
       clearJustPressed(state.input);
@@ -327,6 +368,8 @@ export function updateGame(state: GameState, dt: number): void {
 
 function tickPlaying(state: GameState, dt: number): void {
   state.time += dt;
+  state.player.runScrap += SCRAP_PER_SECOND * dt;
+
   updateSpawn(state, dt);
   updateMovement(state, dt);
   updateEnemyAI(state, dt);
@@ -342,6 +385,13 @@ function tickPlaying(state: GameState, dt: number): void {
   updateLaser(state, dt);
   updateMachineGun(state, dt);
   updateRockets(state, dt);
+
+  const extracting = updateExtraction(state, dt);
+  if (extracting) {
+    extractRun(state);
+    return;
+  }
+
   updateCombat(state, dt);
   updateRegen(state, dt);
   updateDeathDrops(state);
@@ -350,12 +400,7 @@ function tickPlaying(state: GameState, dt: number): void {
   pruneDead(state);
 
   if (state.player.hp <= 0) {
-    endRun(state, "lost");
-    return;
-  }
-  if (state.time >= RUN_DURATION) {
-    state.time = RUN_DURATION;
-    endRun(state, "won");
+    loseRun(state);
     return;
   }
   maybeStartLevelUp(state);
@@ -598,6 +643,7 @@ export function renderGame(
   }
 
   drawPickupViz(ctx, state, alpha, camX, camY);
+  drawExtractionZone(ctx, state, camX, camY);
   drawAura(ctx, state, alpha, camX, camY);
   drawMines(ctx, state, alpha, camX, camY);
   drawGems(ctx, state, alpha, camX, camY);
@@ -610,10 +656,11 @@ export function renderGame(
   drawLightning(ctx, state, camX, camY);
   drawLaserBeams(ctx, state, camX, camY);
   drawPlayer(ctx, state, alpha, camX, camY);
+  drawExtractionArrow(ctx, state, camX, camY);
   drawHud(ctx, state);
 
   if (state.phase === "levelup") drawLevelUpModal(ctx, state);
-  else if (state.phase === "won") drawEndScreen(ctx, state, "won");
+  else if (state.phase === "extracted") drawEndScreen(ctx, state, "extracted");
   else if (state.phase === "lost") drawEndScreen(ctx, state, "lost");
 }
 
@@ -1002,6 +1049,104 @@ function drawPickupViz(
   ctx.globalAlpha = prevAlpha;
 }
 
+function drawExtractionZone(
+  ctx: CanvasRenderingContext2D,
+  state: GameState,
+  camX: number,
+  camY: number
+): void {
+  const z = state.extraction;
+  if (!z) return;
+  const { width, height } = state.viewport;
+  const sx = width / 2 + (z.pos.x - camX);
+  const sy = height / 2 + (z.pos.y - camY);
+
+  const wave = 0.5 + 0.5 * Math.sin((state.time / EXTRACT_PULSE_PERIOD) * Math.PI * 2);
+  const innerR =
+    EXTRACT_INNER_RADIUS_MIN + (EXTRACT_INNER_RADIUS_MAX - EXTRACT_INNER_RADIUS_MIN) * wave;
+
+  const prev = ctx.globalAlpha;
+  ctx.fillStyle = EXTRACT_COLOR;
+  ctx.globalAlpha = 0.18;
+  ctx.beginPath();
+  ctx.arc(sx, sy, z.radius, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.globalAlpha = 0.85;
+  ctx.lineWidth = 3;
+  ctx.strokeStyle = EXTRACT_COLOR;
+  ctx.beginPath();
+  ctx.arc(sx, sy, z.radius, 0, Math.PI * 2);
+  ctx.stroke();
+
+  ctx.globalAlpha = 0.5 + 0.4 * wave;
+  ctx.beginPath();
+  ctx.arc(sx, sy, innerR, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.globalAlpha = prev;
+}
+
+function drawExtractionArrow(
+  ctx: CanvasRenderingContext2D,
+  state: GameState,
+  camX: number,
+  camY: number
+): void {
+  const z = state.extraction;
+  if (!z) return;
+  const { width, height } = state.viewport;
+  const halfW = width / 2;
+  const halfH = height / 2;
+  const sx = halfW + (z.pos.x - camX);
+  const sy = halfH + (z.pos.y - camY);
+
+  const onScreen = sx >= 0 && sx <= width && sy >= 0 && sy <= height;
+  if (onScreen) return;
+
+  const dx = sx - halfW;
+  const dy = sy - halfH;
+  const len = Math.hypot(dx, dy);
+  if (len < 1) return;
+
+  const margin = EXTRACT_ARROW_MARGIN;
+  const maxX = width - margin - halfW;
+  const minX = margin - halfW;
+  const maxY = height - margin - halfH;
+  const minY = margin - halfH;
+
+  let t = Infinity;
+  if (dx > 0) t = Math.min(t, maxX / dx);
+  else if (dx < 0) t = Math.min(t, minX / dx);
+  if (dy > 0) t = Math.min(t, maxY / dy);
+  else if (dy < 0) t = Math.min(t, minY / dy);
+
+  const ax = halfW + dx * t;
+  const ay = halfH + dy * t;
+  const angle = Math.atan2(dy, dx);
+
+  ctx.save();
+  ctx.translate(ax, ay);
+  ctx.rotate(angle);
+  ctx.fillStyle = EXTRACT_COLOR;
+  ctx.beginPath();
+  const s = EXTRACT_ARROW_SIZE;
+  ctx.moveTo(s, 0);
+  ctx.lineTo(-s * 0.6, s * 0.6);
+  ctx.lineTo(-s * 0.6, -s * 0.6);
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+
+  const dist = Math.round(
+    Math.hypot(z.pos.x - state.player.pos.x, z.pos.y - state.player.pos.y)
+  );
+  ctx.fillStyle = EXTRACT_COLOR;
+  ctx.font = HUD_FONT;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "top";
+  ctx.fillText(`${dist}px`, ax, ay + s + 4);
+}
+
 function drawGems(
   ctx: CanvasRenderingContext2D,
   state: GameState,
@@ -1036,14 +1181,56 @@ function drawHud(ctx: CanvasRenderingContext2D, state: GameState): void {
     32
   );
   ctx.fillText(`DMG x${state.player.globalDamageMult.toFixed(2)}`, 12, 52);
+  const salvageMult = getSalvageMultiplier(state.save);
+  const displayScrap = Math.floor(state.player.runScrap * salvageMult);
+  ctx.fillStyle = WORKSHOP_SCRAP_COLOR;
+  ctx.fillText(`Run Scrap: ${displayScrap}`, 12, 72);
+  ctx.fillStyle = HUD_COLOR;
 
-  const remaining = Math.max(0, RUN_DURATION - state.time);
   ctx.textAlign = "center";
-  ctx.fillText(formatTime(remaining), state.viewport.width / 2, 12);
+  ctx.fillText(formatTime(state.time), state.viewport.width / 2, 12);
   ctx.fillText(`Threat: ${Math.floor(state.time / 60)}`, state.viewport.width / 2, 32);
 
+  drawExtractionStatus(ctx, state);
   drawWeaponStats(ctx, state);
   drawWeaponList(ctx, state);
+}
+
+function drawExtractionStatus(
+  ctx: CanvasRenderingContext2D,
+  state: GameState
+): void {
+  const cx = state.viewport.width / 2;
+  if (state.extraction) {
+    const z = state.extraction;
+    const pulse = 0.7 + 0.3 * Math.sin(state.time * EXTRACT_PULSE_HZ * Math.PI * 2);
+    const prev = ctx.globalAlpha;
+    ctx.globalAlpha = pulse;
+    ctx.font = EXTRACT_ACTIVE_FONT;
+    ctx.fillStyle = EXTRACT_COLOR;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "top";
+    ctx.fillText(
+      `EXTRACT! ${Math.ceil(z.ttl)}s   ${z.multiplier.toFixed(1)}x`,
+      cx,
+      56
+    );
+    ctx.globalAlpha = prev;
+    ctx.font = HUD_FONT;
+    return;
+  }
+  const nextOpen = nextWindowOpenTime(state);
+  const remaining = Math.max(0, nextOpen - state.time);
+  const nextMult = getExtractMultiplier(state.nextExtractWindow);
+  ctx.font = HUD_FONT;
+  ctx.fillStyle = EXTRACT_COLOR;
+  ctx.textAlign = "center";
+  ctx.fillText(
+    `Next extract: ${nextMult.toFixed(1)}x in ${formatTime(remaining)}`,
+    cx,
+    56
+  );
+  ctx.fillStyle = HUD_COLOR;
 }
 
 function drawWeaponList(ctx: CanvasRenderingContext2D, state: GameState): void {
@@ -1414,7 +1601,7 @@ function drawLevelUpModal(ctx: CanvasRenderingContext2D, state: GameState): void
 function drawEndScreen(
   ctx: CanvasRenderingContext2D,
   state: GameState,
-  outcome: "won" | "lost"
+  outcome: "extracted" | "lost"
 ): void {
   const { width, height } = state.viewport;
 
@@ -1422,26 +1609,38 @@ function drawEndScreen(
   ctx.fillRect(0, 0, width, height);
 
   ctx.font = END_TITLE_FONT;
-  ctx.fillStyle = outcome === "won" ? END_WON_COLOR : END_LOST_COLOR;
+  ctx.fillStyle = outcome === "extracted" ? END_WON_COLOR : END_LOST_COLOR;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
-  ctx.fillText(outcome === "won" ? "SURVIVED" : "DEAD", width / 2, height / 2 - 80);
+  ctx.fillText(
+    outcome === "extracted" ? "EXTRACTED" : "DEAD",
+    width / 2,
+    height / 2 - 80
+  );
 
   ctx.font = END_STATS_FONT;
   ctx.fillStyle = MODAL_TEXT;
-  const elapsed = Math.min(state.time, RUN_DURATION);
-  ctx.fillText(
-    `Time ${formatTime(elapsed)}   LV ${state.player.level}   Kills ${state.killCount}`,
-    width / 2,
-    height / 2
-  );
+  const statsLine =
+    outcome === "extracted"
+      ? `Time ${formatTime(state.time)}   LV ${state.player.level}   Kills ${state.killCount}   Mult ${state.extractMultiplierLastRun.toFixed(1)}x`
+      : `Time ${formatTime(state.time)}   LV ${state.player.level}   Kills ${state.killCount}`;
+  ctx.fillText(statsLine, width / 2, height / 2);
 
-  ctx.fillStyle = WORKSHOP_SCRAP_COLOR;
-  ctx.fillText(
-    `Earned ${state.scrapEarnedLastRun} scrap (${state.save.totalScrap} total)`,
-    width / 2,
-    height / 2 + 40
-  );
+  if (outcome === "extracted") {
+    ctx.fillStyle = WORKSHOP_SCRAP_COLOR;
+    ctx.fillText(
+      `Scrap Banked: ${state.scrapEarnedLastRun}  (${state.save.totalScrap} total)`,
+      width / 2,
+      height / 2 + 40
+    );
+  } else {
+    ctx.fillStyle = SCRAP_LOST_COLOR;
+    ctx.fillText(
+      `Scrap Lost: ${state.scrapLostLastRun}`,
+      width / 2,
+      height / 2 + 40
+    );
+  }
 
   if (state.unlocksThisRun.length > 0) {
     ctx.fillStyle = UNLOCK_LINE_COLOR;

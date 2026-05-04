@@ -6,6 +6,7 @@ import {
   GLOBAL_DAMAGE_MULT_PER_LEVEL,
   LEVEL_XP_GROWTH,
   PICKUP_VIZ_DURATION,
+  SCRAP_PER_LEVEL,
 } from "../constants";
 
 export function updateGems(state: GameState, dt: number): void {
@@ -59,6 +60,7 @@ function grantXp(state: GameState, amount: number): void {
     p.level += 1;
     p.xpToNext = Math.ceil(p.xpToNext * LEVEL_XP_GROWTH);
     p.globalDamageMult += GLOBAL_DAMAGE_MULT_PER_LEVEL;
+    p.runScrap += SCRAP_PER_LEVEL;
     state.pendingLevelUps += 1;
   }
 }
