@@ -20,7 +20,7 @@ export type Entity = {
 };
 
 export type WeaponType =
-  | "projectile"
+  | "pistol"
   | "orb"
   | "boomerang"
   | "aura"
@@ -33,8 +33,8 @@ export type WeaponType =
   | "repulsor"
   | "sword";
 
-export type ProjectileWeapon = {
-  type: "projectile";
+export type PistolWeapon = {
+  type: "pistol";
   damage: number;
   fireRate: number;
   projectileSpeed: number;
@@ -150,7 +150,7 @@ export type SwordWeapon = {
 };
 
 export type Weapon =
-  | ProjectileWeapon
+  | PistolWeapon
   | OrbWeapon
   | BoomerangWeapon
   | AuraWeapon

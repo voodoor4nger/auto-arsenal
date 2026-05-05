@@ -78,6 +78,13 @@ import {
   PAUSE_BUTTON_ICON,
   PAUSE_BUTTON_SIZE,
   PAUSE_HINT_FONT,
+  MOD_TAG_HEIGHT,
+  MOD_TAG_FONT,
+  MOD_TAG_PASSIVE_BG,
+  MOD_TAG_PASSIVE_TEXT,
+  MOD_TAG_SUMMON_BG,
+  MOD_TAG_SUMMON_TEXT,
+  MOD_TAG_WEAPON_TEXT,
   BERSERKER_HP_THRESHOLD,
   BERSERKER_VIGNETTE_INNER,
   BERSERKER_VIGNETTE_OUTER,
@@ -152,11 +159,12 @@ import {
 import {
   findAuraWeapon,
   findOrbWeapon,
-  findProjectileWeapon,
+  findPistolWeapon,
   findRepulsorWeapon,
   findSwordWeapon,
   getOwnedWeaponDefs,
-  projectileWeaponDef,
+  getWeaponDefForMod,
+  pistolWeaponDef,
   WEAPON_DEFS,
   type WeaponDef,
 } from "./weapons";
@@ -272,7 +280,7 @@ function makeInitialPlayer(): Player {
     regen: REGEN_DEFAULT,
     xpMultiplier: XP_MULTIPLIER_DEFAULT,
     iframeRemaining: 0,
-    weapons: [projectileWeaponDef.create()],
+    weapons: [pistolWeaponDef.create()],
     level: 1,
     xp: 0,
     xpToNext: LEVEL_XP_START,
@@ -320,7 +328,7 @@ function findWeaponDefById(id: string): WeaponDef | undefined {
 function startNewRun(state: GameState): void {
   freshRun(state);
   const starter =
-    findWeaponDefById(state.save.selectedStartingWeapon) ?? projectileWeaponDef;
+    findWeaponDefById(state.save.selectedStartingWeapon) ?? pistolWeaponDef;
   state.player.weapons = [starter.create()];
   applyUpgrades(state, state.save);
   state.scrapEarnedLastRun = 0;
@@ -355,7 +363,7 @@ function loseRun(state: GameState): void {
   state.scrapEarnedLastRun = 0;
   state.scrapLostLastRun = lost;
   state.extractMultiplierLastRun = 0;
-  state.unlocksThisRun = checkAchievements(state);
+  state.unlocksThisRun = [];
   writeSave(state.save);
   state.phase = "lost";
 }
@@ -495,6 +503,85 @@ type Rect = { x: number; y: number; w: number; h: number };
 
 function pointInRect(p: { x: number; y: number }, r: Rect): boolean {
   return p.x >= r.x && p.x <= r.x + r.w && p.y >= r.y && p.y <= r.y + r.h;
+}
+
+function wrapText(
+  ctx: CanvasRenderingContext2D,
+  text: string,
+  maxWidth: number
+): string[] {
+  if (!text) return [];
+  const words = text.split(/\s+/);
+  const lines: string[] = [];
+  let current = "";
+  for (const word of words) {
+    const candidate = current ? current + " " + word : word;
+    if (ctx.measureText(candidate).width <= maxWidth) {
+      current = candidate;
+    } else {
+      if (current) lines.push(current);
+      // word itself overflows; truncate it
+      current = ctx.measureText(word).width > maxWidth ? truncateText(ctx, word, maxWidth) : word;
+    }
+  }
+  if (current) lines.push(current);
+  return lines;
+}
+
+function truncateText(
+  ctx: CanvasRenderingContext2D,
+  text: string,
+  maxWidth: number
+): string {
+  if (ctx.measureText(text).width <= maxWidth) return text;
+  const ellipsis = "…";
+  let lo = 0;
+  let hi = text.length;
+  while (lo < hi) {
+    const mid = Math.floor((lo + hi + 1) / 2);
+    if (ctx.measureText(text.slice(0, mid) + ellipsis).width <= maxWidth) lo = mid;
+    else hi = mid - 1;
+  }
+  return text.slice(0, lo) + ellipsis;
+}
+
+function drawModCardTag(
+  ctx: CanvasRenderingContext2D,
+  card: Rect,
+  mod: import("./mods").Mod
+): void {
+  let bg: string;
+  let textColor: string;
+  let label: string;
+
+  if (mod.isSummon) {
+    bg = MOD_TAG_SUMMON_BG;
+    textColor = MOD_TAG_SUMMON_TEXT;
+    label = "NEW WEAPON";
+  } else if (mod.category === "weapon") {
+    const def = getWeaponDefForMod(mod.id);
+    bg = def ? def.color : MOD_TAG_PASSIVE_BG;
+    textColor = MOD_TAG_WEAPON_TEXT;
+    label = def ? def.name : "WEAPON";
+  } else {
+    bg = MOD_TAG_PASSIVE_BG;
+    textColor = MOD_TAG_PASSIVE_TEXT;
+    label = "PASSIVE";
+  }
+
+  ctx.fillStyle = bg;
+  ctx.fillRect(card.x, card.y, card.w, MOD_TAG_HEIGHT);
+
+  ctx.font = MOD_TAG_FONT;
+  ctx.fillStyle = textColor;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  const innerW = card.w - 16;
+  ctx.fillText(
+    truncateText(ctx, label, innerW),
+    card.x + card.w / 2,
+    card.y + MOD_TAG_HEIGHT / 2
+  );
 }
 
 function getPlayAgainRect(state: GameState): Rect {
@@ -1541,9 +1628,9 @@ function drawWeaponList(ctx: CanvasRenderingContext2D, state: GameState): void {
 
 function drawWeaponStats(ctx: CanvasRenderingContext2D, state: GameState): void {
   const lines: string[] = [];
-  const proj = findProjectileWeapon(state);
+  const proj = findPistolWeapon(state);
   if (proj) {
-    lines.push("PROJECTILE");
+    lines.push("PISTOL");
     lines.push(`  DMG    ${proj.damage.toFixed(1)}`);
     lines.push(`  RATE   ${proj.fireRate.toFixed(2)}`);
     lines.push(`  COUNT  ${proj.projectileCount}`);
@@ -1807,21 +1894,29 @@ function drawUpgradeCard(
   ctx.textAlign = "left";
   ctx.textBaseline = "top";
 
+  const PAD = 12;
+  const innerW = card.w - PAD * 2;
+
   ctx.font = WORKSHOP_NAME_FONT;
   ctx.fillStyle = MODAL_TEXT;
-  ctx.fillText(def.name, card.x + 12, card.y + 12);
+  ctx.fillText(truncateText(ctx, def.name, innerW), card.x + PAD, card.y + 12);
 
   ctx.font = WORKSHOP_DESC_FONT;
   ctx.fillStyle = MODAL_DESC_TEXT;
-  ctx.fillText(def.desc, card.x + 12, card.y + 36);
+  const descLines = wrapText(ctx, def.desc, innerW);
+  let dy = card.y + 36;
+  for (const line of descLines) {
+    ctx.fillText(line, card.x + PAD, dy);
+    dy += 16;
+  }
 
   ctx.font = WORKSHOP_VALUE_FONT;
   ctx.fillStyle = MODAL_TEXT;
-  ctx.fillText(`Tier ${tier}/${def.maxTier}`, card.x + 12, card.y + 70);
+  ctx.fillText(`Tier ${tier}/${def.maxTier}`, card.x + PAD, card.y + 80);
 
   ctx.fillStyle = WORKSHOP_SCRAP_COLOR;
-  if (isMaxed) ctx.fillText("MAXED", card.x + 12, card.y + 92);
-  else ctx.fillText(`Cost: ${cost}`, card.x + 12, card.y + 92);
+  if (isMaxed) ctx.fillText("MAXED", card.x + PAD, card.y + 100);
+  else ctx.fillText(`Cost: ${cost}`, card.x + PAD, card.y + 100);
 
   const buy = getWorkshopBuyRect(card);
   const buyLabel = isMaxed ? "MAX" : "Buy";
@@ -1846,9 +1941,11 @@ function drawLevelUpModal(ctx: CanvasRenderingContext2D, state: GameState): void
   const mx = state.input.mouse.x;
   const my = state.input.mouse.y;
 
+  const PAD = 12;
   for (let i = 0; i < offer.length; i++) {
     const r = rects[i];
     const hover = mx >= r.x && mx <= r.x + r.w && my >= r.y && my <= r.y + r.h;
+    const mod = offer[i];
 
     ctx.fillStyle = hover ? MODAL_CARD_BG_HOVER : MODAL_CARD_BG;
     ctx.fillRect(r.x, r.y, r.w, r.h);
@@ -1856,14 +1953,25 @@ function drawLevelUpModal(ctx: CanvasRenderingContext2D, state: GameState): void
     ctx.strokeStyle = hover ? MODAL_CARD_BORDER_HOVER : MODAL_CARD_BORDER;
     ctx.strokeRect(r.x + 1, r.y + 1, r.w - 2, r.h - 2);
 
+    drawModCardTag(ctx, r, mod);
+
     const cx = r.x + r.w / 2;
+    const innerW = r.w - PAD * 2;
+
     ctx.font = MODAL_NAME_FONT;
     ctx.fillStyle = MODAL_TEXT;
-    ctx.fillText(offer[i].name, cx, r.y + 60);
+    ctx.textAlign = "center";
+    ctx.textBaseline = "alphabetic";
+    ctx.fillText(truncateText(ctx, mod.name, innerW), cx, r.y + MOD_TAG_HEIGHT + 50);
 
     ctx.font = MODAL_DESC_FONT;
     ctx.fillStyle = MODAL_DESC_TEXT;
-    ctx.fillText(offer[i].desc, cx, r.y + 100);
+    const descLines = wrapText(ctx, mod.desc, innerW);
+    let dy = r.y + MOD_TAG_HEIGHT + 90;
+    for (const line of descLines) {
+      ctx.fillText(line, cx, dy);
+      dy += 18;
+    }
   }
 
   const reroll = getRerollButtonRect(state);

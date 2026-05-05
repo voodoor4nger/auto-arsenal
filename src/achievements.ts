@@ -19,25 +19,29 @@ function nameForWeapon(id: WeaponType): string {
 
 export const ACHIEVEMENT_DEFS: Achievement[] = [
   {
-    id: ACHIEVEMENTS.REACH_LEVEL_10.ID,
-    desc: ACHIEVEMENTS.REACH_LEVEL_10.DESC,
-    weaponId: ACHIEVEMENTS.REACH_LEVEL_10.WEAPON,
-    weaponName: nameForWeapon(ACHIEVEMENTS.REACH_LEVEL_10.WEAPON),
-    criteria: (s) => s.player.level >= ACHIEVEMENTS.REACH_LEVEL_10.LEVEL_THRESHOLD,
+    id: ACHIEVEMENTS.EXTRACT_LEVEL_15.ID,
+    desc: ACHIEVEMENTS.EXTRACT_LEVEL_15.DESC,
+    weaponId: ACHIEVEMENTS.EXTRACT_LEVEL_15.WEAPON,
+    weaponName: nameForWeapon(ACHIEVEMENTS.EXTRACT_LEVEL_15.WEAPON),
+    criteria: (s) => s.player.level >= ACHIEVEMENTS.EXTRACT_LEVEL_15.LEVEL_THRESHOLD,
   },
   {
-    id: ACHIEVEMENTS.KILL_500.ID,
-    desc: ACHIEVEMENTS.KILL_500.DESC,
-    weaponId: ACHIEVEMENTS.KILL_500.WEAPON,
-    weaponName: nameForWeapon(ACHIEVEMENTS.KILL_500.WEAPON),
-    criteria: (s) => s.killCount >= ACHIEVEMENTS.KILL_500.KILL_THRESHOLD,
+    id: ACHIEVEMENTS.EXTRACT_KILLS_1000.ID,
+    desc: ACHIEVEMENTS.EXTRACT_KILLS_1000.DESC,
+    weaponId: ACHIEVEMENTS.EXTRACT_KILLS_1000.WEAPON,
+    weaponName: nameForWeapon(ACHIEVEMENTS.EXTRACT_KILLS_1000.WEAPON),
+    criteria: (s) => s.killCount >= ACHIEVEMENTS.EXTRACT_KILLS_1000.KILL_THRESHOLD,
   },
   {
-    id: ACHIEVEMENTS.SURVIVE_5_MIN.ID,
-    desc: ACHIEVEMENTS.SURVIVE_5_MIN.DESC,
-    weaponId: ACHIEVEMENTS.SURVIVE_5_MIN.WEAPON,
-    weaponName: nameForWeapon(ACHIEVEMENTS.SURVIVE_5_MIN.WEAPON),
-    criteria: (s) => s.time >= ACHIEVEMENTS.SURVIVE_5_MIN.SECONDS_THRESHOLD,
+    id: ACHIEVEMENTS.EXTRACT_MIN_9.ID,
+    desc: ACHIEVEMENTS.EXTRACT_MIN_9.DESC,
+    weaponId: ACHIEVEMENTS.EXTRACT_MIN_9.WEAPON,
+    weaponName: nameForWeapon(ACHIEVEMENTS.EXTRACT_MIN_9.WEAPON),
+    // checkAchievements is only invoked from extractRun, where state.extraction
+    // is still set with the window the player just stepped into. ?? 0 is
+    // defensive against the function being called outside that flow.
+    criteria: (s) =>
+      (s.extraction?.windowIndex ?? 0) >= ACHIEVEMENTS.EXTRACT_MIN_9.WINDOW_THRESHOLD,
   },
 ];
 
@@ -53,7 +57,7 @@ export function checkAchievements(state: GameState): Achievement[] {
 }
 
 export function isWeaponUnlocked(save: SaveData, weaponId: string): boolean {
-  if (weaponId === "projectile") return true;
+  if (weaponId === "pistol") return true;
   const ach = ACHIEVEMENT_DEFS.find((a) => a.weaponId === weaponId);
   if (!ach) return true;
   return !!save.achievements[ach.id];

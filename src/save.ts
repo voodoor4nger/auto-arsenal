@@ -12,7 +12,7 @@ export function defaultSave(): SaveData {
     totalScrap: 0,
     upgrades: {},
     achievements: {},
-    selectedStartingWeapon: "projectile",
+    selectedStartingWeapon: "pistol",
   };
 }
 
@@ -40,10 +40,11 @@ export function loadSave(): SaveData {
         if (typeof v === "boolean") achievements[k] = v;
       }
     }
-    const selectedStartingWeapon =
+    let selectedStartingWeapon =
       typeof parsed.selectedStartingWeapon === "string"
         ? parsed.selectedStartingWeapon
-        : "projectile";
+        : "pistol";
+    if (selectedStartingWeapon === "projectile") selectedStartingWeapon = "pistol";
     return { totalScrap, upgrades, achievements, selectedStartingWeapon };
   } catch {
     return defaultSave();

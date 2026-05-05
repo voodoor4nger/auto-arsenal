@@ -119,7 +119,7 @@ export const THORNS_MAX_STACKS = 4;
 export const IRON_SKIN_STACK = 0.10;
 export const IRON_SKIN_MAX_STACKS = 4;
 export const WEAPON_SLOT_MAX = 3;
-export const WEAPON_NAME_PROJECTILE = "BOLT";
+export const WEAPON_NAME_PISTOL = "PISTOL";
 export const WEAPON_NAME_ORB = "ORB";
 
 export const SAVE_KEY = "auto-arsenal-save";
@@ -143,6 +143,15 @@ export const EXTRACT_ACTIVE_FONT = "bold 24px ui-monospace, Menlo, monospace";
 export const EXTRACT_PULSE_HZ = 2;
 export const SCRAP_LOST_COLOR = "#e23b3b";
 
+export const MOD_TAG_HEIGHT = 22;
+export const MOD_TAG_FONT = "bold 11px ui-monospace, Menlo, monospace";
+export const MOD_TAG_TEXT_COLOR = "#0b0d10";
+export const MOD_TAG_PASSIVE_BG = "#7a818f";
+export const MOD_TAG_PASSIVE_TEXT = "#e6e9ef";
+export const MOD_TAG_SUMMON_BG = "#7ad36b";
+export const MOD_TAG_SUMMON_TEXT = "#0b0d10";
+export const MOD_TAG_WEAPON_TEXT = "#0b0d10";
+
 export const PAUSE_BUTTON_SIZE = 36;
 export const PAUSE_BUTTON_BG = "#1c2230";
 export const PAUSE_BUTTON_BG_HOVER = "#2a3548";
@@ -156,7 +165,7 @@ export const UPGRADES = {
     NAME: "Reinforced Frame",
     DESC: "+10 max HP per tier",
     MAX_TIER: 5,
-    COSTS: [50, 100, 200, 400, 800],
+    COSTS: [150, 400, 1000, 2400, 5500],
     HP_PER_TIER: 10,
   },
   GREASED_BEARINGS: {
@@ -164,7 +173,7 @@ export const UPGRADES = {
     NAME: "Greased Bearings",
     DESC: "+4% move speed per tier",
     MAX_TIER: 3,
-    COSTS: [75, 150, 300],
+    COSTS: [200, 500, 1200],
     SPEED_PCT_PER_TIER: 0.04,
   },
   SHARPER_EDGES: {
@@ -172,7 +181,7 @@ export const UPGRADES = {
     NAME: "Sharper Edges",
     DESC: "+4% base damage per tier",
     MAX_TIER: 5,
-    COSTS: [60, 120, 240, 480, 960],
+    COSTS: [180, 450, 1100, 2600, 6000],
     DMG_PCT_PER_TIER: 0.04,
   },
   WIDER_MAGNET: {
@@ -180,7 +189,7 @@ export const UPGRADES = {
     NAME: "Wider Magnet",
     DESC: "+15px pickup radius per tier",
     MAX_TIER: 3,
-    COSTS: [50, 100, 200],
+    COSTS: [150, 350, 800],
     PICKUP_PER_TIER: 15,
   },
   SALVAGE_NETWORK: {
@@ -188,7 +197,7 @@ export const UPGRADES = {
     NAME: "Salvage Network",
     DESC: "+8% scrap earned per tier",
     MAX_TIER: 3,
-    COSTS: [100, 200, 400],
+    COSTS: [300, 750, 1800],
     SCRAP_PCT_PER_TIER: 0.08,
   },
   FIELD_MEDIC: {
@@ -196,7 +205,7 @@ export const UPGRADES = {
     NAME: "Field Medic",
     DESC: "+0.2 HP/sec regen per tier",
     MAX_TIER: 3,
-    COSTS: [80, 160, 320],
+    COSTS: [240, 600, 1400],
     REGEN_PER_TIER: 0.2,
   },
   REROLL_TOKEN: {
@@ -204,12 +213,12 @@ export const UPGRADES = {
     NAME: "Reroll Token",
     DESC: "+1 reroll per run",
     MAX_TIER: 3,
-    COSTS: [150, 300, 600],
+    COSTS: [400, 1000, 2400],
     TOKENS_PER_TIER: 1,
   },
 } as const;
 
-export const WORKSHOP_CARD_W = 220;
+export const WORKSHOP_CARD_W = 280;
 export const WORKSHOP_CARD_H = 160;
 export const WORKSHOP_CARD_GAP = 16;
 export const WORKSHOP_COLS = 4;
@@ -230,26 +239,26 @@ export const WORKSHOP_SCRAP_COLOR = "#f5d76e";
 export const WIPE_SAVE_FONT = "12px ui-monospace, Menlo, monospace";
 export const WIPE_SAVE_COLOR = "#5a6275";
 
-export const STARTER_WEAPON_IDS = ["projectile", "laser", "mg", "rocket"] as const;
+export const STARTER_WEAPON_IDS = ["pistol", "laser", "mg", "rocket"] as const;
 
 export const ACHIEVEMENTS = {
-  REACH_LEVEL_10: {
-    ID: "reach_level_10",
-    DESC: "Reach level 10 in a run",
+  EXTRACT_LEVEL_15: {
+    ID: "extract_level_15",
+    DESC: "reached level 15 and extracted",
     WEAPON: "laser",
-    LEVEL_THRESHOLD: 10,
+    LEVEL_THRESHOLD: 15,
   },
-  KILL_500: {
-    ID: "kill_500",
-    DESC: "Get 500 kills in a single run",
+  EXTRACT_KILLS_1000: {
+    ID: "extract_kills_1000",
+    DESC: "got 1000 kills and extracted",
     WEAPON: "mg",
-    KILL_THRESHOLD: 500,
+    KILL_THRESHOLD: 1000,
   },
-  SURVIVE_5_MIN: {
-    ID: "survive_5_min",
-    DESC: "Survive 5 minutes",
+  EXTRACT_MIN_9: {
+    ID: "extract_min_9",
+    DESC: "survived to the 9-min extraction",
     WEAPON: "rocket",
-    SECONDS_THRESHOLD: 300,
+    WINDOW_THRESHOLD: 3,
   },
 } as const;
 

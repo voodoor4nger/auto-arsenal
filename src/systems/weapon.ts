@@ -1,14 +1,14 @@
 import type { GameState } from "../game";
-import type { Enemy, ProjectileWeapon, Projectile } from "../types";
+import type { Enemy, PistolWeapon, Projectile } from "../types";
 import {
   PROJECTILE_LIFETIME,
   PROJECTILE_RADIUS,
   WEAPON_RANGE,
 } from "../constants";
-import { findProjectileWeapon } from "../weapons";
+import { findPistolWeapon } from "../weapons";
 
 export function updateWeapon(state: GameState, dt: number): void {
-  const w = findProjectileWeapon(state);
+  const w = findPistolWeapon(state);
   if (!w) return;
 
   if (w.cooldownRemaining > 0) {
@@ -43,7 +43,7 @@ function findNearestEnemyInRange(state: GameState, range: number): Enemy | null 
   return best;
 }
 
-function fireAt(state: GameState, w: ProjectileWeapon, target: Enemy): void {
+function fireAt(state: GameState, w: PistolWeapon, target: Enemy): void {
   const px = state.player.pos.x;
   const py = state.player.pos.y;
   const dx = target.pos.x - px;

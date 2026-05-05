@@ -8,7 +8,7 @@ import type {
   MachineGunWeapon,
   MinesWeapon,
   OrbWeapon,
-  ProjectileWeapon,
+  PistolWeapon,
   RepulsorWeapon,
   RocketLauncherWeapon,
   SwordWeapon,
@@ -30,7 +30,7 @@ import {
   PIERCE_MAX,
   PROJECTILE_COLOR,
   WEAPON_NAME_ORB,
-  WEAPON_NAME_PROJECTILE,
+  WEAPON_NAME_PISTOL,
   WEAPON_SLOT_MAX,
   WEAPON_STARTER_DAMAGE,
   WEAPON_STARTER_FIRE_RATE,
@@ -53,9 +53,9 @@ export type WeaponDef = {
   getStats: (w: Weapon) => string;
 };
 
-export function findProjectileWeapon(state: GameState): ProjectileWeapon | undefined {
+export function findPistolWeapon(state: GameState): PistolWeapon | undefined {
   return state.player.weapons.find(
-    (w): w is ProjectileWeapon => w.type === "projectile"
+    (w): w is PistolWeapon => w.type === "pistol"
   );
 }
 
@@ -103,14 +103,14 @@ export function findSwordWeapon(state: GameState): SwordWeapon | undefined {
   return state.player.weapons.find((w): w is SwordWeapon => w.type === "sword");
 }
 
-export const projectileWeaponDef: WeaponDef = {
-  type: "projectile",
-  name: WEAPON_NAME_PROJECTILE,
+export const pistolWeaponDef: WeaponDef = {
+  type: "pistol",
+  name: WEAPON_NAME_PISTOL,
   color: PROJECTILE_COLOR,
   isStarter: true,
   starterOnly: true,
   create: () => ({
-    type: "projectile",
+    type: "pistol",
     damage: WEAPON_STARTER_DAMAGE,
     fireRate: WEAPON_STARTER_FIRE_RATE,
     projectileSpeed: WEAPON_STARTER_PROJECTILE_SPEED,
@@ -120,52 +120,52 @@ export const projectileWeaponDef: WeaponDef = {
     cooldownRemaining: 0,
   }),
   getStats: (w) => {
-    const p = w as ProjectileWeapon;
+    const p = w as PistolWeapon;
     return `DMG ${p.damage.toFixed(1)}  RATE ${p.fireRate.toFixed(2)}`;
   },
   summonMod: {
-    id: "summon_bolt",
-    name: "Summon Bolt",
-    desc: "Auto-firing projectile weapon",
+    id: "summon_pistol",
+    name: "Summon Pistol",
+    desc: "Auto-firing pistol",
     category: "weapon",
     eligible: () => true,
     isSummon: true,
-    apply: (s) => s.player.weapons.push(projectileWeaponDef.create()),
+    apply: (s) => s.player.weapons.push(pistolWeaponDef.create()),
   },
   mods: [
     {
       id: "faster_hands",
       name: "Faster Hands",
-      desc: "+25% bolt fire rate",
+      desc: "+25% pistol fire rate",
       category: "weapon",
       isDamageRelevant: true,
       eligible: () => true,
       apply: (s) => {
-        const w = findProjectileWeapon(s);
+        const w = findPistolWeapon(s);
         if (w) w.fireRate *= 1.25;
       },
     },
     {
       id: "heavy_rounds",
       name: "Heavy Rounds",
-      desc: "+25% bolt damage",
+      desc: "+25% pistol damage",
       category: "weapon",
       isDamageRelevant: true,
       eligible: () => true,
       apply: (s) => {
-        const w = findProjectileWeapon(s);
+        const w = findPistolWeapon(s);
         if (w) w.damage *= 1.25;
       },
     },
     {
       id: "split_shot",
       name: "Split Shot",
-      desc: "+1 bolt projectile",
+      desc: "+1 pistol shot",
       category: "weapon",
       isDamageRelevant: true,
       eligible: () => true,
       apply: (s) => {
-        const w = findProjectileWeapon(s);
+        const w = findPistolWeapon(s);
         if (w) w.projectileCount += 1;
       },
     },
@@ -176,11 +176,11 @@ export const projectileWeaponDef: WeaponDef = {
       category: "weapon",
       isDamageRelevant: true,
       eligible: (s) => {
-        const w = findProjectileWeapon(s);
+        const w = findPistolWeapon(s);
         return !!w && w.pierce < PIERCE_MAX;
       },
       apply: (s) => {
-        const w = findProjectileWeapon(s);
+        const w = findPistolWeapon(s);
         if (w) w.pierce = Math.min(PIERCE_MAX, w.pierce + 1);
       },
     },
@@ -190,11 +190,11 @@ export const projectileWeaponDef: WeaponDef = {
       desc: `+${HOMING_STEP} homing (max ${HOMING_MAX.toFixed(1)})`,
       category: "weapon",
       eligible: (s) => {
-        const w = findProjectileWeapon(s);
+        const w = findPistolWeapon(s);
         return !!w && w.homingStrength < HOMING_MAX - 1e-6;
       },
       apply: (s) => {
-        const w = findProjectileWeapon(s);
+        const w = findPistolWeapon(s);
         if (w) w.homingStrength = Math.min(HOMING_MAX, w.homingStrength + HOMING_STEP);
       },
     },
@@ -1038,7 +1038,7 @@ export const swordWeaponDef: WeaponDef = {
 };
 
 export const WEAPON_DEFS: WeaponDef[] = [
-  projectileWeaponDef,
+  pistolWeaponDef,
   orbWeaponDef,
   boomerangWeaponDef,
   auraWeaponDef,
@@ -1069,4 +1069,17 @@ export function getEligibleSummonMods(state: GameState): Mod[] {
   return WEAPON_DEFS.filter((d) => !owned.has(d.type) && !d.starterOnly).map(
     (d) => d.summonMod
   );
+}
+
+const MOD_TO_WEAPON: Map<string, WeaponDef> = (() => {
+  const m = new Map<string, WeaponDef>();
+  for (const def of WEAPON_DEFS) {
+    m.set(def.summonMod.id, def);
+    for (const mod of def.mods) m.set(mod.id, def);
+  }
+  return m;
+})();
+
+export function getWeaponDefForMod(modId: string): WeaponDef | undefined {
+  return MOD_TO_WEAPON.get(modId);
 }
