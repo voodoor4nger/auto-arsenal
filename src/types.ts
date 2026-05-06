@@ -273,6 +273,23 @@ export type ClusterBomb = Entity & {
   ttl: number;
 };
 
+export type PickupType = "bomb" | "magnet" | "heart" | "scrap_bag" | "clock";
+
+export type Pickup = Entity & {
+  kind: "pickup";
+  pickupType: PickupType;
+  spawnTime: number;
+};
+
+export type FloatingText = {
+  text: string;
+  pos: Vec2;
+  vy: number;
+  ttl: number;
+  ttlMax: number;
+  color: string;
+};
+
 export type PlasmaField = {
   pos: Vec2;
   radius: number;
@@ -300,6 +317,8 @@ type EnemyBase = Entity & {
   critFlashTtl: number;
   burnTtl: number;
   burnDps: number;
+  dropsLoot: boolean;
+  freezeTtl: number;
 };
 
 export type Chaser = EnemyBase & { species: "chaser" };
@@ -328,6 +347,7 @@ export type Projectile = Entity & {
 export type Gem = Entity & {
   kind: "gem";
   value: number;
+  magnetized: boolean;
 };
 
 export type Camera = {

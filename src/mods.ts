@@ -199,7 +199,22 @@ export function rollOffer(state: GameState, count: number): Mod[] {
   }
 
   ensureDamageRelevant(state, picked, [...passive, ...weapon]);
+  ensureEvolution(state, picked);
   return picked;
+}
+
+function ensureEvolution(state: GameState, picked: Mod[]): void {
+  if (state.player.level < EVOLUTION_LEVEL_THRESHOLD) return;
+  if (picked.some((m) => m.isEvolution)) return;
+  const eligible = getEligibleEvolutionMods(state);
+  const pickedIds = new Set(picked.map((m) => m.id));
+  const candidates = eligible.filter((m) => !pickedIds.has(m.id));
+  if (candidates.length === 0) return;
+  const replacement = candidates[Math.floor(Math.random() * candidates.length)];
+  // Prefer to replace a non-evolution card. Since precondition is that no
+  // evolution was picked, every index qualifies — but be defensive.
+  const replaceIdx = Math.floor(Math.random() * picked.length);
+  picked[replaceIdx] = replacement;
 }
 
 function ensureDamageRelevant(state: GameState, picked: Mod[], allEligibleSource: Mod[]): void {

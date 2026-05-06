@@ -103,6 +103,8 @@ function makeChaser(state: GameState, x: number, y: number): Chaser {
     critFlashTtl: 0,
     burnTtl: 0,
     burnDps: 0,
+    dropsLoot: true,
+    freezeTtl: 0,
   };
 }
 
@@ -127,6 +129,8 @@ function makeShooter(state: GameState, x: number, y: number): Shooter {
     critFlashTtl: 0,
     burnTtl: 0,
     burnDps: 0,
+    dropsLoot: true,
+    freezeTtl: 0,
     fireCooldown: SHOOTER_FIRE_INTERVAL,
   };
 }

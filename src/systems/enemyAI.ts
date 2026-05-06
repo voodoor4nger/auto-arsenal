@@ -14,6 +14,14 @@ export function updateEnemyAI(state: GameState, dt: number): void {
       e.burnTtl = Math.max(0, e.burnTtl - dt);
       if (!e.alive) continue;
     }
+    if (e.freezeTtl > 0) {
+      e.freezeTtl = Math.max(0, e.freezeTtl - dt);
+      e.prevPos.x = e.pos.x;
+      e.prevPos.y = e.pos.y;
+      e.vel.x = 0;
+      e.vel.y = 0;
+      continue;
+    }
     e.prevPos.x = e.pos.x;
     e.prevPos.y = e.pos.y;
 

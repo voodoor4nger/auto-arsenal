@@ -5,6 +5,7 @@ import {
   GEM_SNAP_RADIUS,
   GLOBAL_DAMAGE_MULT_PER_LEVEL,
   LEVEL_XP_GROWTH,
+  MAGNET_PICKUP_SPEED,
   PICKUP_VIZ_DURATION,
   SCRAP_PER_LEVEL,
 } from "../constants";
@@ -32,7 +33,11 @@ export function updateGems(state: GameState, dt: number): void {
       continue;
     }
 
-    if (d > pickupR) {
+    if (g.magnetized) {
+      const inv = 1 / d;
+      g.vel.x = dx * inv * MAGNET_PICKUP_SPEED;
+      g.vel.y = dy * inv * MAGNET_PICKUP_SPEED;
+    } else if (d > pickupR) {
       g.vel.x = 0;
       g.vel.y = 0;
     } else {

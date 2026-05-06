@@ -19,6 +19,7 @@ export function updateCombat(state: GameState, dt: number): void {
 
   for (const e of state.enemies) {
     if (!e.alive) continue;
+    if (e.freezeTtl > 0) continue;
     const dx = e.pos.x - player.pos.x;
     const dy = e.pos.y - player.pos.y;
     const r = e.radius + player.radius;

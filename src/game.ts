@@ -5,6 +5,7 @@ import type {
   Enemy,
   EnemyProjectile,
   ExtractionZone,
+  FloatingText,
   Gem,
   LaserBeam,
   LightningBolt,
@@ -12,6 +13,7 @@ import type {
   Orb,
   Phase,
   PlasmaField,
+  Pickup,
   Player,
   Projectile,
   Rocket,
@@ -48,6 +50,28 @@ import {
   PICKUP_RADIUS_DEFAULT,
   PICKUP_VIZ_COLOR,
   PICKUP_VIZ_DURATION,
+  PICKUP_RENDER_SIZE,
+  PICKUP_BOB_AMPLITUDE,
+  PICKUP_BOB_PERIOD,
+  PICKUP_GLOW_PERIOD,
+  PICKUP_GLOW_MIN_ALPHA,
+  PICKUP_GLOW_MAX_ALPHA,
+  BOMB_FLASH_DURATION,
+  BOMB_FLASH_ALPHA,
+  BOMB_SHOCKWAVE_DURATION,
+  BOMB_SHOCKWAVE_MAX_RADIUS,
+  MAGNET_PULSE_DURATION,
+  MAGNET_PULSE_RADIUS,
+  HEART_VIGNETTE_DURATION,
+  HEART_VIGNETTE_INNER,
+  HEART_VIGNETTE_OUTER,
+  CLOCK_TINT_COLOR,
+  CLOCK_VIGNETTE_DURATION,
+  CLOCK_VIGNETTE_INNER,
+  CLOCK_VIGNETTE_OUTER,
+  CLOCK_FROZEN_TINT,
+  CLOCK_FROZEN_RING_COLOR,
+  FLOATING_TEXT_FONT,
   PLAYER_COLOR,
   PLAYER_FLASH_HZ,
   PLAYER_MAX_HP,
@@ -152,6 +176,7 @@ import { updateBoomerangs } from "./systems/boomerang";
 import { updateAura } from "./systems/aura";
 import { updateLightning } from "./systems/lightning";
 import { updateMines, updatePlasmaFields } from "./systems/mines";
+import { updatePickups } from "./systems/pickup";
 import { updateLaser } from "./systems/laser";
 import { updateMachineGun } from "./systems/mg";
 import { updateRockets } from "./systems/rocket";
@@ -217,6 +242,16 @@ export type GameState = {
   laserBeams: LaserBeam[];
   clusterBombs: ClusterBomb[];
   plasmaFields: PlasmaField[];
+  pickups: Pickup[];
+  floatingTexts: FloatingText[];
+  bombFlashTtl: number;
+  bombShockwaveTtl: number;
+  bombShockwaveOriginX: number;
+  bombShockwaveOriginY: number;
+  magnetPulseTtl: number;
+  heartVignetteTtl: number;
+  clockTintTtl: number;
+  clockVignetteTtl: number;
   camera: Camera;
   input: InputState;
   viewport: { width: number; height: number };
@@ -254,6 +289,16 @@ export function initGame(viewport: { width: number; height: number }): GameState
     laserBeams: [],
     clusterBombs: [],
     plasmaFields: [],
+    pickups: [],
+    floatingTexts: [],
+    bombFlashTtl: 0,
+    bombShockwaveTtl: 0,
+    bombShockwaveOriginX: 0,
+    bombShockwaveOriginY: 0,
+    magnetPulseTtl: 0,
+    heartVignetteTtl: 0,
+    clockTintTtl: 0,
+    clockVignetteTtl: 0,
     camera: { pos: { x: 0, y: 0 }, prevPos: { x: 0, y: 0 } },
     input: createInput(),
     viewport,
@@ -322,6 +367,16 @@ function freshRun(state: GameState): void {
   state.laserBeams = [];
   state.clusterBombs = [];
   state.plasmaFields = [];
+  state.pickups = [];
+  state.floatingTexts = [];
+  state.bombFlashTtl = 0;
+  state.bombShockwaveTtl = 0;
+  state.bombShockwaveOriginX = 0;
+  state.bombShockwaveOriginY = 0;
+  state.magnetPulseTtl = 0;
+  state.heartVignetteTtl = 0;
+  state.clockTintTtl = 0;
+  state.clockVignetteTtl = 0;
   state.camera = { pos: { x: 0, y: 0 }, prevPos: { x: 0, y: 0 } };
   state.spawnTimer = SPAWN_INTERVAL_START;
   state.pendingLevelUps = 0;
@@ -462,6 +517,7 @@ function tickPlaying(state: GameState, dt: number): void {
 
   updateSpawn(state, dt);
   updateMovement(state, dt);
+  updatePickups(state, dt);
   updateEnemyAI(state, dt);
   updateEnemyShoot(state, dt);
   updateWeapon(state, dt);
@@ -806,6 +862,9 @@ function pruneDead(state: GameState): void {
   if (state.clusterBombs.some((b) => !b.alive)) {
     state.clusterBombs = state.clusterBombs.filter((b) => b.alive);
   }
+  if (state.pickups.some((p) => !p.alive)) {
+    state.pickups = state.pickups.filter((p) => p.alive);
+  }
 }
 
 export function renderGame(
@@ -844,6 +903,7 @@ export function renderGame(
   drawAura(ctx, state, alpha, camX, camY);
   drawPlasmaFields(ctx, state, camX, camY);
   drawMines(ctx, state, alpha, camX, camY);
+  drawPickups(ctx, state, camX, camY);
   drawGems(ctx, state, alpha, camX, camY);
   drawEnemies(ctx, state, alpha, camX, camY);
   drawEnemyProjectiles(ctx, state, alpha, camX, camY);
@@ -859,6 +919,13 @@ export function renderGame(
   drawSwordSwing(ctx, state, camX, camY);
   drawPlayer(ctx, state, alpha, camX, camY);
   drawMinigunIndicator(ctx, state, camX, camY);
+  drawBombShockwave(ctx, state, camX, camY);
+  drawMagnetPulse(ctx, state, camX, camY);
+  drawFloatingTexts(ctx, state, camX, camY);
+  drawClockTint(ctx, state);
+  drawClockVignette(ctx, state);
+  drawHeartVignette(ctx, state);
+  drawBombFlash(ctx, state);
   drawBerserkerVignette(ctx, state);
   drawExtractionArrow(ctx, state, camX, camY);
   drawHud(ctx, state);
@@ -891,6 +958,248 @@ function drawBerserkerVignette(
   grad.addColorStop(1, BERSERKER_VIGNETTE_OUTER);
   ctx.fillStyle = grad;
   ctx.fillRect(0, 0, width, height);
+}
+
+function drawHeartVignette(
+  ctx: CanvasRenderingContext2D,
+  state: GameState
+): void {
+  if (state.heartVignetteTtl <= 0) return;
+  const fade = state.heartVignetteTtl / HEART_VIGNETTE_DURATION;
+  const { width, height } = state.viewport;
+  const cx = width / 2;
+  const cy = height / 2;
+  const r = Math.max(width, height) * 0.7;
+  const grad = ctx.createRadialGradient(cx, cy, r * 0.4, cx, cy, r);
+  grad.addColorStop(0, HEART_VIGNETTE_INNER);
+  grad.addColorStop(1, HEART_VIGNETTE_OUTER);
+  const prev = ctx.globalAlpha;
+  ctx.globalAlpha = fade;
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, width, height);
+  ctx.globalAlpha = prev;
+}
+
+function drawClockTint(ctx: CanvasRenderingContext2D, state: GameState): void {
+  if (state.clockTintTtl <= 0) return;
+  const { width, height } = state.viewport;
+  ctx.fillStyle = CLOCK_TINT_COLOR;
+  ctx.fillRect(0, 0, width, height);
+}
+
+function drawClockVignette(
+  ctx: CanvasRenderingContext2D,
+  state: GameState
+): void {
+  if (state.clockVignetteTtl <= 0) return;
+  const fade = state.clockVignetteTtl / CLOCK_VIGNETTE_DURATION;
+  const { width, height } = state.viewport;
+  const cx = width / 2;
+  const cy = height / 2;
+  const r = Math.max(width, height) * 0.7;
+  const grad = ctx.createRadialGradient(cx, cy, r * 0.4, cx, cy, r);
+  grad.addColorStop(0, CLOCK_VIGNETTE_INNER);
+  grad.addColorStop(1, CLOCK_VIGNETTE_OUTER);
+  const prev = ctx.globalAlpha;
+  ctx.globalAlpha = fade;
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, width, height);
+  ctx.globalAlpha = prev;
+}
+
+function drawBombFlash(ctx: CanvasRenderingContext2D, state: GameState): void {
+  if (state.bombFlashTtl <= 0) return;
+  const { width, height } = state.viewport;
+  const fade = state.bombFlashTtl / BOMB_FLASH_DURATION;
+  const prev = ctx.globalAlpha;
+  ctx.globalAlpha = BOMB_FLASH_ALPHA * fade;
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, width, height);
+  ctx.globalAlpha = prev;
+}
+
+function drawBombShockwave(
+  ctx: CanvasRenderingContext2D,
+  state: GameState,
+  camX: number,
+  camY: number
+): void {
+  if (state.bombShockwaveTtl <= 0) return;
+  const { width, height } = state.viewport;
+  const t = 1 - state.bombShockwaveTtl / BOMB_SHOCKWAVE_DURATION;
+  const radius = BOMB_SHOCKWAVE_MAX_RADIUS * t;
+  const sx = width / 2 + (state.bombShockwaveOriginX - camX);
+  const sy = height / 2 + (state.bombShockwaveOriginY - camY);
+  const prev = ctx.globalAlpha;
+  ctx.globalAlpha = state.bombShockwaveTtl / BOMB_SHOCKWAVE_DURATION;
+  ctx.lineWidth = 4;
+  ctx.strokeStyle = "#ffffff";
+  ctx.beginPath();
+  ctx.arc(sx, sy, radius, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.globalAlpha = prev;
+}
+
+function drawMagnetPulse(
+  ctx: CanvasRenderingContext2D,
+  state: GameState,
+  camX: number,
+  camY: number
+): void {
+  if (state.magnetPulseTtl <= 0) return;
+  const { width, height } = state.viewport;
+  const t = 1 - state.magnetPulseTtl / MAGNET_PULSE_DURATION;
+  const sx = width / 2 + (state.player.pos.x - camX);
+  const sy = height / 2 + (state.player.pos.y - camY);
+  const prev = ctx.globalAlpha;
+  ctx.globalAlpha = state.magnetPulseTtl / MAGNET_PULSE_DURATION;
+  ctx.lineWidth = 3;
+  ctx.strokeStyle = "#a8e0ff";
+  ctx.beginPath();
+  ctx.arc(sx, sy, MAGNET_PULSE_RADIUS * t, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.globalAlpha = prev;
+}
+
+function drawFloatingTexts(
+  ctx: CanvasRenderingContext2D,
+  state: GameState,
+  camX: number,
+  camY: number
+): void {
+  if (state.floatingTexts.length === 0) return;
+  const { width, height } = state.viewport;
+  ctx.font = FLOATING_TEXT_FONT;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  const prev = ctx.globalAlpha;
+  for (const f of state.floatingTexts) {
+    if (f.ttl <= 0) continue;
+    ctx.globalAlpha = Math.max(0, Math.min(1, f.ttl / f.ttlMax));
+    ctx.fillStyle = f.color;
+    ctx.fillText(f.text, width / 2 + (f.pos.x - camX), height / 2 + (f.pos.y - camY));
+  }
+  ctx.globalAlpha = prev;
+}
+
+function drawPickups(
+  ctx: CanvasRenderingContext2D,
+  state: GameState,
+  camX: number,
+  camY: number
+): void {
+  if (state.pickups.length === 0) return;
+  const { width, height } = state.viewport;
+  const halfW = width / 2;
+  const halfH = height / 2;
+  const now = state.time;
+  for (const pu of state.pickups) {
+    if (!pu.alive) continue;
+    const bob =
+      Math.sin(((now - pu.spawnTime) / PICKUP_BOB_PERIOD) * Math.PI * 2) *
+      PICKUP_BOB_AMPLITUDE;
+    const sx = halfW + (pu.pos.x - camX);
+    const sy = halfH + (pu.pos.y - camY) + bob;
+    drawPickupGlow(ctx, sx, sy, now);
+    drawPickupIcon(ctx, pu.pickupType, sx, sy);
+  }
+}
+
+function drawPickupGlow(
+  ctx: CanvasRenderingContext2D,
+  sx: number,
+  sy: number,
+  now: number
+): void {
+  const phase = 0.5 + 0.5 * Math.sin((now / PICKUP_GLOW_PERIOD) * Math.PI * 2);
+  const alpha = PICKUP_GLOW_MIN_ALPHA + (PICKUP_GLOW_MAX_ALPHA - PICKUP_GLOW_MIN_ALPHA) * phase;
+  const r = PICKUP_RENDER_SIZE * 0.85;
+  const grad = ctx.createRadialGradient(sx, sy, r * 0.2, sx, sy, r);
+  grad.addColorStop(0, `rgba(255, 255, 255, ${alpha})`);
+  grad.addColorStop(1, "rgba(255, 255, 255, 0)");
+  ctx.fillStyle = grad;
+  ctx.fillRect(sx - r, sy - r, r * 2, r * 2);
+}
+
+function drawPickupIcon(
+  ctx: CanvasRenderingContext2D,
+  type: import("./types").PickupType,
+  sx: number,
+  sy: number
+): void {
+  const half = PICKUP_RENDER_SIZE / 2;
+  switch (type) {
+    case "bomb":
+      ctx.fillStyle = "#3a3a3a";
+      ctx.beginPath();
+      ctx.arc(sx, sy, half * 0.78, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = "#1a1a1a";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(sx, sy - half * 0.78);
+      ctx.lineTo(sx + half * 0.4, sy - half * 1.05);
+      ctx.stroke();
+      ctx.fillStyle = "#ff5a3a";
+      ctx.beginPath();
+      ctx.arc(sx + half * 0.4, sy - half * 1.05, 3, 0, Math.PI * 2);
+      ctx.fill();
+      return;
+    case "magnet":
+      ctx.fillStyle = "#e23b3b";
+      ctx.fillRect(sx - half * 0.7, sy - half * 0.5, half * 0.45, half * 0.9);
+      ctx.fillRect(sx + half * 0.25, sy - half * 0.5, half * 0.45, half * 0.9);
+      ctx.fillStyle = "#cccccc";
+      ctx.fillRect(sx - half * 0.7, sy + half * 0.4 - 4, half * 1.4, half * 0.4);
+      ctx.fillStyle = "#cccccc";
+      ctx.fillRect(sx - half * 0.7, sy - half * 0.55, half * 0.45, 4);
+      ctx.fillRect(sx + half * 0.25, sy - half * 0.55, half * 0.45, 4);
+      return;
+    case "heart":
+      ctx.fillStyle = "#ff7bc8";
+      ctx.beginPath();
+      const hx = sx;
+      const hy = sy + half * 0.2;
+      const w = half * 1.05;
+      const hh = half * 1.0;
+      ctx.moveTo(hx, hy + hh * 0.4);
+      ctx.bezierCurveTo(hx, hy, hx - w, hy, hx - w, hy - hh * 0.3);
+      ctx.bezierCurveTo(hx - w, hy - hh * 0.85, hx, hy - hh * 0.85, hx, hy - hh * 0.4);
+      ctx.bezierCurveTo(hx, hy - hh * 0.85, hx + w, hy - hh * 0.85, hx + w, hy - hh * 0.3);
+      ctx.bezierCurveTo(hx + w, hy, hx, hy, hx, hy + hh * 0.4);
+      ctx.fill();
+      return;
+    case "scrap_bag":
+      ctx.fillStyle = "#7a4a2a";
+      ctx.fillRect(sx - half * 0.7, sy - half * 0.5, half * 1.4, half * 1.2);
+      ctx.fillStyle = "#3a2010";
+      ctx.fillRect(sx - half * 0.5, sy - half * 0.7, half * 1.0, half * 0.3);
+      ctx.fillStyle = "#f5d76e";
+      ctx.beginPath();
+      ctx.arc(sx - half * 0.25, sy + half * 0.05, 2.5, 0, Math.PI * 2);
+      ctx.arc(sx + half * 0.2, sy + half * 0.25, 2.5, 0, Math.PI * 2);
+      ctx.arc(sx + half * 0.05, sy - half * 0.1, 2, 0, Math.PI * 2);
+      ctx.fill();
+      return;
+    case "clock":
+      ctx.fillStyle = "#f5f5f5";
+      ctx.beginPath();
+      ctx.arc(sx, sy, half * 0.85, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = "#5ad7ff";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(sx, sy, half * 0.85, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(sx, sy);
+      ctx.lineTo(sx, sy - half * 0.55);
+      ctx.moveTo(sx, sy);
+      ctx.lineTo(sx + half * 0.4, sy);
+      ctx.stroke();
+      return;
+  }
 }
 
 function drawPauseButton(ctx: CanvasRenderingContext2D, state: GameState): void {
@@ -1035,6 +1344,27 @@ function drawEnemies(
     ctx.beginPath();
     ctx.arc(sx, sy, r, 0, Math.PI * 2);
     ctx.fill();
+
+    if (e.freezeTtl > 0) {
+      const prev = ctx.globalAlpha;
+      ctx.globalAlpha = 0.55;
+      ctx.fillStyle = CLOCK_FROZEN_TINT;
+      ctx.beginPath();
+      ctx.arc(sx, sy, r, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.globalAlpha = 0.85;
+      ctx.strokeStyle = CLOCK_FROZEN_RING_COLOR;
+      ctx.lineWidth = 1;
+      const spike = r * 0.45;
+      for (let i = 0; i < 4; i++) {
+        const a = (state.time * 0.6 + (i * Math.PI) / 2) % (Math.PI * 2);
+        ctx.beginPath();
+        ctx.moveTo(sx + Math.cos(a) * (r * 0.3), sy + Math.sin(a) * (r * 0.3));
+        ctx.lineTo(sx + Math.cos(a) * (r * 0.3 + spike), sy + Math.sin(a) * (r * 0.3 + spike));
+        ctx.stroke();
+      }
+      ctx.globalAlpha = prev;
+    }
   }
 }
 

@@ -54,6 +54,45 @@ export const SPAWN_COUNT_START = 1;
 export const SPAWN_COUNT_END = 8;
 export const SPAWN_OFFSCREEN_MARGIN = 60;
 
+export const PICKUP_DROP_CHANCE = 0.01;
+export const PICKUP_TYPES = ["bomb", "magnet", "heart", "scrap_bag", "clock"] as const;
+export const PICKUP_RADIUS = 18;
+export const PICKUP_RENDER_SIZE = 36;
+export const PICKUP_BOB_AMPLITUDE = 4;
+export const PICKUP_BOB_PERIOD = 1.5;
+export const PICKUP_GLOW_PERIOD = 1.0;
+export const PICKUP_GLOW_MIN_ALPHA = 0.18;
+export const PICKUP_GLOW_MAX_ALPHA = 0.45;
+
+export const PICKUP_BOMB_DAMAGE = 9999;
+export const BOMB_FLASH_DURATION = 0.3;
+export const BOMB_FLASH_ALPHA = 0.6;
+export const BOMB_SHOCKWAVE_DURATION = 0.55;
+export const BOMB_SHOCKWAVE_MAX_RADIUS = 800;
+
+export const MAGNET_PICKUP_SPEED = 800;
+export const MAGNET_PULSE_DURATION = 0.4;
+export const MAGNET_PULSE_RADIUS = 240;
+
+export const HEART_HEAL_PCT = 0.30;
+export const HEART_VIGNETTE_DURATION = 0.4;
+export const HEART_VIGNETTE_INNER = "rgba(122, 211, 107, 0)";
+export const HEART_VIGNETTE_OUTER = "rgba(122, 211, 107, 0.30)";
+
+export const SCRAP_BAG_AMOUNT = 50;
+
+export const CLOCK_FREEZE_DURATION = 3;
+export const CLOCK_TINT_COLOR = "rgba(120, 180, 255, 0.10)";
+export const CLOCK_VIGNETTE_DURATION = 0.4;
+export const CLOCK_VIGNETTE_INNER = "rgba(120, 180, 255, 0)";
+export const CLOCK_VIGNETTE_OUTER = "rgba(120, 180, 255, 0.30)";
+export const CLOCK_FROZEN_TINT = "rgba(160, 210, 255, 0.55)";
+export const CLOCK_FROZEN_RING_COLOR = "#a8d8ff";
+
+export const FLOATING_TEXT_TTL = 1.0;
+export const FLOATING_TEXT_VY = 36;
+export const FLOATING_TEXT_FONT = "bold 14px ui-monospace, Menlo, monospace";
+
 export const GEM_RADIUS = 5;
 export const GEM_COLOR = "#5ad7ff";
 export const GEM_XP_VALUE = 1;
