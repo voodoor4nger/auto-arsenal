@@ -51,6 +51,8 @@ export type OrbWeapon = {
   rotationSpeed: number;
   orbCount: number;
   baseAngle: number;
+  orbitRadius: number;
+  evolved: boolean;
 };
 
 export type BoomerangWeapon = {
@@ -60,6 +62,7 @@ export type BoomerangWeapon = {
   range: number;
   returnSpeed: number;
   cooldownRemaining: number;
+  evolved: boolean;
 };
 
 export type AuraWeapon = {
@@ -69,6 +72,7 @@ export type AuraWeapon = {
   tickRate: number;
   tickCooldown: number;
   pulseTtl: number;
+  evolved: boolean;
 };
 
 export type LightningWeapon = {
@@ -78,6 +82,7 @@ export type LightningWeapon = {
   chainCount: number;
   chainRange: number;
   cooldownRemaining: number;
+  evolved: boolean;
 };
 
 export type MinesWeapon = {
@@ -87,6 +92,7 @@ export type MinesWeapon = {
   explosionRadius: number;
   triggerRadius: number;
   cooldownRemaining: number;
+  evolved: boolean;
 };
 
 export type LaserWeapon = {
@@ -132,6 +138,7 @@ export type ClusterBombWeapon = {
   fragmentCount: number;
   fireRate: number;
   cooldownRemaining: number;
+  evolved: boolean;
 };
 
 export type RepulsorWeapon = {
@@ -143,6 +150,9 @@ export type RepulsorWeapon = {
   pulseCooldown: number;
   pulseVizTtl: number;
   pulseVizRadius: number;
+  evolved: boolean;
+  nextPulseIsPull: boolean;
+  pulseVizType: "push" | "pull";
 };
 
 export type SwordWeapon = {
@@ -156,6 +166,7 @@ export type SwordWeapon = {
   swingFromAngle: number;
   swingToAngle: number;
   swingRange: number;
+  evolved: boolean;
 };
 
 export type Weapon =
@@ -198,6 +209,7 @@ export type Player = Entity & {
 export type Orb = Entity & {
   kind: "orb";
   lastHitByEnemy: Map<number, number>;
+  trailHistory: { x: number; y: number; t: number }[];
 };
 
 export type Boomerang = Entity & {
@@ -208,6 +220,9 @@ export type Boomerang = Entity & {
   speed: number;
   phase: "outgoing" | "returning";
   lastHitByEnemy: Map<number, number>;
+  lobe: number;
+  totalLobes: number;
+  fireAngle: number;
 };
 
 export type Mine = Entity & {
@@ -258,6 +273,16 @@ export type ClusterBomb = Entity & {
   ttl: number;
 };
 
+export type PlasmaField = {
+  pos: Vec2;
+  radius: number;
+  ttl: number;
+  ttlMax: number;
+  tickCooldown: number;
+  tickInterval: number;
+  perTickDamage: number;
+};
+
 export type ExtractionZone = {
   pos: Vec2;
   radius: number;
@@ -273,6 +298,8 @@ type EnemyBase = Entity & {
   damage: number;
   speed: number;
   critFlashTtl: number;
+  burnTtl: number;
+  burnDps: number;
 };
 
 export type Chaser = EnemyBase & { species: "chaser" };

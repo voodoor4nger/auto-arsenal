@@ -25,6 +25,7 @@ import {
   ORB_INITIAL_COUNT,
   ORB_INITIAL_DAMAGE,
   ORB_INITIAL_ROTATION_SPEED,
+  ORB_ORBIT_RADIUS,
   ORB_ROTATION_MAX,
   ORB_ROTATION_STEP,
   PIERCE_MAX,
@@ -233,6 +234,8 @@ export const orbWeaponDef: WeaponDef = {
     rotationSpeed: ORB_INITIAL_ROTATION_SPEED,
     orbCount: ORB_INITIAL_COUNT,
     baseAngle: 0,
+    orbitRadius: ORB_ORBIT_RADIUS,
+    evolved: false,
   }),
   getStats: (w) => {
     const o = w as OrbWeapon;
@@ -291,6 +294,25 @@ export const orbWeaponDef: WeaponDef = {
       },
     },
   ],
+  evolutionMod: {
+    id: EVOLUTIONS.ORB.ID,
+    name: EVOLUTIONS.ORB.NAME,
+    desc: EVOLUTIONS.ORB.DESC,
+    category: "evolution",
+    isEvolution: true,
+    isDamageRelevant: true,
+    eligible: (s) => {
+      const w = findOrbWeapon(s);
+      return !!w && !w.evolved;
+    },
+    apply: (s) => {
+      const w = findOrbWeapon(s);
+      if (!w || w.evolved) return;
+      w.orbitRadius *= EVOLUTIONS.ORB.ORBIT_RADIUS_MULT;
+      w.damage *= EVOLUTIONS.ORB.DAMAGE_MULT;
+      w.evolved = true;
+    },
+  },
 };
 
 export const boomerangWeaponDef: WeaponDef = {
@@ -305,6 +327,7 @@ export const boomerangWeaponDef: WeaponDef = {
     range: WEAPONS.BOOMERANG.RANGE,
     returnSpeed: WEAPONS.BOOMERANG.RETURN_SPEED,
     cooldownRemaining: 0,
+    evolved: false,
   }),
   getStats: (w) => {
     const b = w as BoomerangWeapon;
@@ -360,6 +383,24 @@ export const boomerangWeaponDef: WeaponDef = {
       },
     },
   ],
+  evolutionMod: {
+    id: EVOLUTIONS.BOOMERANG.ID,
+    name: EVOLUTIONS.BOOMERANG.NAME,
+    desc: EVOLUTIONS.BOOMERANG.DESC,
+    category: "evolution",
+    isEvolution: true,
+    isDamageRelevant: true,
+    eligible: (s) => {
+      const w = findBoomerangWeapon(s);
+      return !!w && !w.evolved;
+    },
+    apply: (s) => {
+      const w = findBoomerangWeapon(s);
+      if (!w || w.evolved) return;
+      w.damage *= EVOLUTIONS.BOOMERANG.DAMAGE_MULT;
+      w.evolved = true;
+    },
+  },
 };
 
 export const auraWeaponDef: WeaponDef = {
@@ -374,6 +415,7 @@ export const auraWeaponDef: WeaponDef = {
     tickRate: WEAPONS.AURA.TICK_RATE,
     tickCooldown: 1 / WEAPONS.AURA.TICK_RATE,
     pulseTtl: 0,
+    evolved: false,
   }),
   getStats: (w) => {
     const a = w as AuraWeapon;
@@ -435,6 +477,23 @@ export const auraWeaponDef: WeaponDef = {
       },
     },
   ],
+  evolutionMod: {
+    id: EVOLUTIONS.AURA.ID,
+    name: EVOLUTIONS.AURA.NAME,
+    desc: EVOLUTIONS.AURA.DESC,
+    category: "evolution",
+    isEvolution: true,
+    isDamageRelevant: true,
+    eligible: (s) => {
+      const w = findAuraWeapon(s);
+      return !!w && !w.evolved;
+    },
+    apply: (s) => {
+      const w = findAuraWeapon(s);
+      if (!w || w.evolved) return;
+      w.evolved = true;
+    },
+  },
 };
 
 export const lightningWeaponDef: WeaponDef = {
@@ -449,6 +508,7 @@ export const lightningWeaponDef: WeaponDef = {
     chainCount: WEAPONS.LIGHTNING.CHAIN_COUNT,
     chainRange: WEAPONS.LIGHTNING.CHAIN_RANGE,
     cooldownRemaining: 0,
+    evolved: false,
   }),
   getStats: (w) => {
     const l = w as LightningWeapon;
@@ -504,6 +564,23 @@ export const lightningWeaponDef: WeaponDef = {
       },
     },
   ],
+  evolutionMod: {
+    id: EVOLUTIONS.LIGHTNING.ID,
+    name: EVOLUTIONS.LIGHTNING.NAME,
+    desc: EVOLUTIONS.LIGHTNING.DESC,
+    category: "evolution",
+    isEvolution: true,
+    isDamageRelevant: true,
+    eligible: (s) => {
+      const w = findLightningWeapon(s);
+      return !!w && !w.evolved;
+    },
+    apply: (s) => {
+      const w = findLightningWeapon(s);
+      if (!w || w.evolved) return;
+      w.evolved = true;
+    },
+  },
 };
 
 export const minesWeaponDef: WeaponDef = {
@@ -518,6 +595,7 @@ export const minesWeaponDef: WeaponDef = {
     explosionRadius: WEAPONS.MINES.EXPLOSION_RADIUS,
     triggerRadius: WEAPONS.MINES.TRIGGER_RADIUS,
     cooldownRemaining: 0,
+    evolved: false,
   }),
   getStats: (w) => {
     const m = w as MinesWeapon;
@@ -573,6 +651,23 @@ export const minesWeaponDef: WeaponDef = {
       },
     },
   ],
+  evolutionMod: {
+    id: EVOLUTIONS.MINES.ID,
+    name: EVOLUTIONS.MINES.NAME,
+    desc: EVOLUTIONS.MINES.DESC,
+    category: "evolution",
+    isEvolution: true,
+    isDamageRelevant: true,
+    eligible: (s) => {
+      const w = findMinesWeapon(s);
+      return !!w && !w.evolved;
+    },
+    apply: (s) => {
+      const w = findMinesWeapon(s);
+      if (!w || w.evolved) return;
+      w.evolved = true;
+    },
+  },
 };
 
 export const laserWeaponDef: WeaponDef = {
@@ -879,6 +974,7 @@ export const clusterBombWeaponDef: WeaponDef = {
     fragmentCount: WEAPONS.CLUSTER.FRAGMENT_COUNT,
     fireRate: WEAPONS.CLUSTER.FIRE_RATE,
     cooldownRemaining: 0,
+    evolved: false,
   }),
   getStats: (w) => {
     const c = w as ClusterBombWeapon;
@@ -948,6 +1044,23 @@ export const clusterBombWeaponDef: WeaponDef = {
       },
     },
   ],
+  evolutionMod: {
+    id: EVOLUTIONS.CLUSTER.ID,
+    name: EVOLUTIONS.CLUSTER.NAME,
+    desc: EVOLUTIONS.CLUSTER.DESC,
+    category: "evolution",
+    isEvolution: true,
+    isDamageRelevant: true,
+    eligible: (s) => {
+      const w = findClusterBombWeapon(s);
+      return !!w && !w.evolved;
+    },
+    apply: (s) => {
+      const w = findClusterBombWeapon(s);
+      if (!w || w.evolved) return;
+      w.evolved = true;
+    },
+  },
 };
 
 export const repulsorWeaponDef: WeaponDef = {
@@ -964,6 +1077,9 @@ export const repulsorWeaponDef: WeaponDef = {
     pulseCooldown: 1 / WEAPONS.REPULSOR.PULSE_RATE,
     pulseVizTtl: 0,
     pulseVizRadius: WEAPONS.REPULSOR.RADIUS,
+    evolved: false,
+    nextPulseIsPull: false,
+    pulseVizType: "push",
   }),
   getStats: (w) => {
     const r = w as RepulsorWeapon;
@@ -1031,6 +1147,24 @@ export const repulsorWeaponDef: WeaponDef = {
       },
     },
   ],
+  evolutionMod: {
+    id: EVOLUTIONS.REPULSOR.ID,
+    name: EVOLUTIONS.REPULSOR.NAME,
+    desc: EVOLUTIONS.REPULSOR.DESC,
+    category: "evolution",
+    isEvolution: true,
+    isDamageRelevant: true,
+    eligible: (s) => {
+      const w = findRepulsorWeapon(s);
+      return !!w && !w.evolved;
+    },
+    apply: (s) => {
+      const w = findRepulsorWeapon(s);
+      if (!w || w.evolved) return;
+      w.pulseRate *= EVOLUTIONS.REPULSOR.PULSE_RATE_MULT;
+      w.evolved = true;
+    },
+  },
 };
 
 export const swordWeaponDef: WeaponDef = {
@@ -1049,6 +1183,7 @@ export const swordWeaponDef: WeaponDef = {
     swingFromAngle: 0,
     swingToAngle: 0,
     swingRange: WEAPONS.SWORD.RANGE,
+    evolved: false,
   }),
   getStats: (w) => {
     const s = w as SwordWeapon;
@@ -1115,6 +1250,25 @@ export const swordWeaponDef: WeaponDef = {
       },
     },
   ],
+  evolutionMod: {
+    id: EVOLUTIONS.SWORD.ID,
+    name: EVOLUTIONS.SWORD.NAME,
+    desc: EVOLUTIONS.SWORD.DESC,
+    category: "evolution",
+    isEvolution: true,
+    isDamageRelevant: true,
+    eligible: (s) => {
+      const w = findSwordWeapon(s);
+      return !!w && !w.evolved;
+    },
+    apply: (s) => {
+      const w = findSwordWeapon(s);
+      if (!w || w.evolved) return;
+      w.range *= EVOLUTIONS.SWORD.RANGE_MULT;
+      w.damage *= EVOLUTIONS.SWORD.DAMAGE_MULT;
+      w.evolved = true;
+    },
+  },
 };
 
 export const WEAPON_DEFS: WeaponDef[] = [

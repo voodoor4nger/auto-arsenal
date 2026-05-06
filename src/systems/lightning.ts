@@ -1,6 +1,6 @@
 import type { GameState } from "../game";
 import type { Enemy } from "../types";
-import { WEAPONS } from "../constants";
+import { EVOLUTIONS, WEAPONS } from "../constants";
 import { findLightningWeapon } from "../weapons";
 import { dealDamage } from "../damage";
 
@@ -18,6 +18,25 @@ export function updateLightning(state: GameState, dt: number): void {
   }
   if (w.cooldownRemaining > 0) return;
   if (w.fireRate <= 0) return;
+
+  if (w.evolved) {
+    const targets = nearestNEnemies(state, EVOLUTIONS.LIGHTNING.SIMUL_TARGET_COUNT);
+    if (targets.length === 0) return;
+    const sky = EVOLUTIONS.LIGHTNING.SKY_OFFSET;
+    for (const t of targets) {
+      dealDamage(state, t, w.damage);
+      state.lightningBolts.push({
+        points: [
+          { x: t.pos.x, y: t.pos.y - sky },
+          { x: t.pos.x, y: t.pos.y },
+        ],
+        ttl: WEAPONS.LIGHTNING.BOLT_TTL,
+        ttlMax: WEAPONS.LIGHTNING.BOLT_TTL,
+      });
+    }
+    w.cooldownRemaining = 1 / w.fireRate;
+    return;
+  }
 
   const first = nearestEnemy(state, state.player.pos.x, state.player.pos.y, new Set());
   if (!first) return;
@@ -47,6 +66,20 @@ export function updateLightning(state: GameState, dt: number): void {
     ttlMax: WEAPONS.LIGHTNING.BOLT_TTL,
   });
   w.cooldownRemaining = 1 / w.fireRate;
+}
+
+function nearestNEnemies(state: GameState, n: number): Enemy[] {
+  const px = state.player.pos.x;
+  const py = state.player.pos.y;
+  const candidates: { e: Enemy; d2: number }[] = [];
+  for (const e of state.enemies) {
+    if (!e.alive) continue;
+    const dx = e.pos.x - px;
+    const dy = e.pos.y - py;
+    candidates.push({ e, d2: dx * dx + dy * dy });
+  }
+  candidates.sort((a, b) => a.d2 - b.d2);
+  return candidates.slice(0, n).map((c) => c.e);
 }
 
 function nearestEnemy(

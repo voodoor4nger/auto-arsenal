@@ -1,6 +1,6 @@
 import type { GameState } from "../game";
 import type { ClusterBomb, Enemy, Projectile } from "../types";
-import { WEAPONS } from "../constants";
+import { EVOLUTIONS, WEAPONS } from "../constants";
 import { findClusterBombWeapon } from "../weapons";
 import { dealDamage } from "../damage";
 
@@ -47,10 +47,37 @@ function detonate(state: GameState, b: ClusterBomb, hit: Enemy | null): void {
 
 function spawnFragments(state: GameState, b: ClusterBomb): void {
   const n = Math.max(1, b.fragmentCount);
+  const w = findClusterBombWeapon(state);
+  const evolved = !!w && w.evolved;
   for (let i = 0; i < n; i++) {
     const angle = (Math.PI * 2 * i) / n;
     const vx = Math.cos(angle) * b.fragmentSpeed;
     const vy = Math.sin(angle) * b.fragmentSpeed;
+
+    if (evolved) {
+      state.rockets.push({
+        kind: "rocket",
+        id: state.nextEntityId++,
+        pos: { x: b.pos.x, y: b.pos.y },
+        prevPos: { x: b.pos.x, y: b.pos.y },
+        vel: { x: vx, y: vy },
+        radius: WEAPONS.CLUSTER.FRAGMENT_RADIUS,
+        alive: true,
+        impactDamage: b.fragmentDamage,
+        explosionDamage: b.fragmentDamage * EVOLUTIONS.CLUSTER.FRAGMENT_AOE_DAMAGE_MULT,
+        explosionRadius: EVOLUTIONS.CLUSTER.FRAGMENT_AOE_RADIUS,
+        ttl: b.fragmentLifetime,
+        exploded: false,
+        explosionTtl: 0,
+        originX: b.pos.x,
+        originY: b.pos.y,
+        splitDistance: 0,
+        splitTimer: 0,
+        homingStrength: 0,
+      });
+      continue;
+    }
+
     const proj: Projectile = {
       kind: "projectile",
       id: state.nextEntityId++,

@@ -11,6 +11,7 @@ import type {
   Mine,
   Orb,
   Phase,
+  PlasmaField,
   Player,
   Projectile,
   Rocket,
@@ -150,7 +151,7 @@ import { updateRegen } from "./systems/regen";
 import { updateBoomerangs } from "./systems/boomerang";
 import { updateAura } from "./systems/aura";
 import { updateLightning } from "./systems/lightning";
-import { updateMines } from "./systems/mines";
+import { updateMines, updatePlasmaFields } from "./systems/mines";
 import { updateLaser } from "./systems/laser";
 import { updateMachineGun } from "./systems/mg";
 import { updateRockets } from "./systems/rocket";
@@ -215,6 +216,7 @@ export type GameState = {
   rockets: Rocket[];
   laserBeams: LaserBeam[];
   clusterBombs: ClusterBomb[];
+  plasmaFields: PlasmaField[];
   camera: Camera;
   input: InputState;
   viewport: { width: number; height: number };
@@ -251,6 +253,7 @@ export function initGame(viewport: { width: number; height: number }): GameState
     rockets: [],
     laserBeams: [],
     clusterBombs: [],
+    plasmaFields: [],
     camera: { pos: { x: 0, y: 0 }, prevPos: { x: 0, y: 0 } },
     input: createInput(),
     viewport,
@@ -318,6 +321,7 @@ function freshRun(state: GameState): void {
   state.rockets = [];
   state.laserBeams = [];
   state.clusterBombs = [];
+  state.plasmaFields = [];
   state.camera = { pos: { x: 0, y: 0 }, prevPos: { x: 0, y: 0 } };
   state.spawnTimer = SPAWN_INTERVAL_START;
   state.pendingLevelUps = 0;
@@ -468,6 +472,7 @@ function tickPlaying(state: GameState, dt: number): void {
   updateAura(state, dt);
   updateLightning(state, dt);
   updateMines(state, dt);
+  updatePlasmaFields(state, dt);
   updateLaser(state, dt);
   updateMachineGun(state, dt);
   updateRockets(state, dt);
@@ -837,6 +842,7 @@ export function renderGame(
   drawPickupViz(ctx, state, alpha, camX, camY);
   drawExtractionZone(ctx, state, camX, camY);
   drawAura(ctx, state, alpha, camX, camY);
+  drawPlasmaFields(ctx, state, camX, camY);
   drawMines(ctx, state, alpha, camX, camY);
   drawGems(ctx, state, alpha, camX, camY);
   drawEnemies(ctx, state, alpha, camX, camY);
@@ -1008,6 +1014,17 @@ function drawEnemies(
     const ey = e.prevPos.y + (e.pos.y - e.prevPos.y) * alpha;
     const sx = width / 2 + (ex - camX);
     const sy = height / 2 + (ey - camY);
+    if (e.burnTtl > 0) {
+      const prev = ctx.globalAlpha;
+      ctx.globalAlpha = 0.55 + 0.25 * Math.sin(state.time * 12 + e.id);
+      ctx.strokeStyle = EVOLUTIONS.AURA.FLAME_RING_COLOR;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(sx, sy + EVOLUTIONS.AURA.FLAME_RING_OFFSET * 0.4, e.radius * 0.9, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.globalAlpha = prev;
+    }
+
     const flashing = e.critFlashTtl > 0;
     ctx.fillStyle = flashing
       ? CRIT_FLASH_COLOR
@@ -1071,12 +1088,42 @@ function drawOrbs(
   camY: number
 ): void {
   const { width, height } = state.viewport;
+  const halfW = width / 2;
+  const halfH = height / 2;
+
+  // Trails first so the orb itself draws on top.
+  const orbWeapon = findOrbWeapon(state);
+  if (orbWeapon && orbWeapon.evolved) {
+    const prev = ctx.globalAlpha;
+    ctx.strokeStyle = EVOLUTIONS.ORB.TRAIL_COLOR;
+    ctx.lineWidth = EVOLUTIONS.ORB.TRAIL_WIDTH;
+    ctx.lineCap = "round";
+    const cutoff = state.time - EVOLUTIONS.ORB.TRAIL_DURATION;
+    for (const orb of state.orbs) {
+      if (orb.trailHistory.length < 2) continue;
+      for (let i = 1; i < orb.trailHistory.length; i++) {
+        const a = orb.trailHistory[i - 1];
+        const b = orb.trailHistory[i];
+        const age = state.time - b.t;
+        if (age <= 0) continue;
+        const t =
+          1 - (b.t - cutoff) / EVOLUTIONS.ORB.TRAIL_DURATION;
+        ctx.globalAlpha = Math.max(0, 1 - t);
+        ctx.beginPath();
+        ctx.moveTo(halfW + (a.x - camX), halfH + (a.y - camY));
+        ctx.lineTo(halfW + (b.x - camX), halfH + (b.y - camY));
+        ctx.stroke();
+      }
+    }
+    ctx.globalAlpha = prev;
+  }
+
   ctx.fillStyle = ORB_COLOR;
   for (const orb of state.orbs) {
     const ox = orb.prevPos.x + (orb.pos.x - orb.prevPos.x) * alpha;
     const oy = orb.prevPos.y + (orb.pos.y - orb.prevPos.y) * alpha;
-    const sx = width / 2 + (ox - camX);
-    const sy = height / 2 + (oy - camY);
+    const sx = halfW + (ox - camX);
+    const sy = halfH + (oy - camY);
     ctx.beginPath();
     ctx.arc(sx, sy, orb.radius, 0, Math.PI * 2);
     ctx.fill();
@@ -1125,9 +1172,10 @@ function drawAura(
   const pulse = w.pulseTtl > 0 ? w.pulseTtl / WEAPONS.AURA.PULSE_DURATION : 0;
   const baseAlpha = 0.10;
   const pulseAlpha = 0.30 * pulse;
+  const auraColor = w.evolved ? EVOLUTIONS.AURA.TINT_COLOR : WEAPONS.AURA.COLOR;
 
   const prev = ctx.globalAlpha;
-  ctx.fillStyle = WEAPONS.AURA.COLOR;
+  ctx.fillStyle = auraColor;
   ctx.globalAlpha = baseAlpha + pulseAlpha;
   ctx.beginPath();
   ctx.arc(sx, sy, w.radius, 0, Math.PI * 2);
@@ -1135,7 +1183,7 @@ function drawAura(
 
   ctx.globalAlpha = 0.5 + 0.5 * pulse;
   ctx.lineWidth = 2;
-  ctx.strokeStyle = WEAPONS.AURA.COLOR;
+  ctx.strokeStyle = auraColor;
   ctx.beginPath();
   ctx.arc(sx, sy, w.radius, 0, Math.PI * 2);
   ctx.stroke();
@@ -1313,13 +1361,15 @@ function drawRepulsorPulse(
   const sy = height / 2 + (state.player.pos.y - camY);
 
   const t = 1 - w.pulseVizTtl / WEAPONS.REPULSOR.VIZ_DURATION;
-  const radius = w.pulseVizRadius * t;
+  const isPull = w.evolved && w.pulseVizType === "pull";
+  // Push expands outward; pull converges inward.
+  const radius = isPull ? w.pulseVizRadius * (1 - t) : w.pulseVizRadius * t;
   const alpha = w.pulseVizTtl / WEAPONS.REPULSOR.VIZ_DURATION;
 
   const prev = ctx.globalAlpha;
   ctx.globalAlpha = alpha;
   ctx.lineWidth = 3;
-  ctx.strokeStyle = WEAPONS.REPULSOR.COLOR;
+  ctx.strokeStyle = isPull ? EVOLUTIONS.REPULSOR.PULL_COLOR : WEAPONS.REPULSOR.COLOR;
   ctx.beginPath();
   ctx.arc(sx, sy, radius, 0, Math.PI * 2);
   ctx.stroke();
@@ -1344,9 +1394,12 @@ function drawSwordSwing(
     w.swingFromAngle + (w.swingToAngle - w.swingFromAngle) * progress;
   const alpha = Math.min(1, (w.swingTtl / dur) * 1.6);
 
+  const fillColor = w.evolved ? EVOLUTIONS.SWORD.BEAM_GLOW : WEAPONS.SWORD.COLOR;
+  const lineColor = w.evolved ? EVOLUTIONS.SWORD.BEAM_COLOR : WEAPONS.SWORD.COLOR;
+
   const prev = ctx.globalAlpha;
   ctx.globalAlpha = alpha * 0.55;
-  ctx.fillStyle = WEAPONS.SWORD.COLOR;
+  ctx.fillStyle = fillColor;
   ctx.beginPath();
   ctx.moveTo(sx, sy);
   ctx.arc(sx, sy, w.swingRange, w.swingFromAngle, leadingAngle);
@@ -1354,8 +1407,8 @@ function drawSwordSwing(
   ctx.fill();
 
   ctx.globalAlpha = alpha;
-  ctx.lineWidth = 3;
-  ctx.strokeStyle = WEAPONS.SWORD.COLOR;
+  ctx.lineWidth = w.evolved ? 5 : 3;
+  ctx.strokeStyle = lineColor;
   ctx.beginPath();
   ctx.moveTo(sx, sy);
   ctx.lineTo(
@@ -1421,6 +1474,47 @@ function drawRockets(
     ctx.arc(ix, iy, r.radius, 0, Math.PI * 2);
     ctx.fill();
   }
+}
+
+function drawPlasmaFields(
+  ctx: CanvasRenderingContext2D,
+  state: GameState,
+  camX: number,
+  camY: number
+): void {
+  if (state.plasmaFields.length === 0) return;
+  const { width, height } = state.viewport;
+  const halfW = width / 2;
+  const halfH = height / 2;
+
+  const prev = ctx.globalAlpha;
+  for (const f of state.plasmaFields) {
+    if (f.ttl <= 0) continue;
+    const fade = Math.max(0, Math.min(1, f.ttl / f.ttlMax));
+    const sx = halfW + (f.pos.x - camX);
+    const sy = halfH + (f.pos.y - camY);
+    const pulse = 0.5 + 0.5 * Math.sin(state.time * 8);
+
+    ctx.fillStyle = EVOLUTIONS.MINES.FIELD_COLOR;
+    ctx.globalAlpha = 0.18 * fade;
+    ctx.beginPath();
+    ctx.arc(sx, sy, f.radius, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = EVOLUTIONS.MINES.FIELD_COLOR;
+    ctx.globalAlpha = 0.6 * fade;
+    ctx.beginPath();
+    ctx.arc(sx, sy, f.radius, 0, Math.PI * 2);
+    ctx.stroke();
+
+    ctx.fillStyle = EVOLUTIONS.MINES.FIELD_INNER_COLOR;
+    ctx.globalAlpha = (0.25 + 0.25 * pulse) * fade;
+    ctx.beginPath();
+    ctx.arc(sx, sy, f.radius * 0.55, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.globalAlpha = prev;
 }
 
 function drawMines(

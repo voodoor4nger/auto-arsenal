@@ -1,5 +1,6 @@
 import type { GameState } from "../game";
 import { SHOOTER_RANGE } from "../constants";
+import { dealDamage } from "../damage";
 
 export function updateEnemyAI(state: GameState, dt: number): void {
   const px = state.player.pos.x;
@@ -8,6 +9,11 @@ export function updateEnemyAI(state: GameState, dt: number): void {
   for (const e of state.enemies) {
     if (!e.alive) continue;
     if (e.critFlashTtl > 0) e.critFlashTtl = Math.max(0, e.critFlashTtl - dt);
+    if (e.burnTtl > 0) {
+      dealDamage(state, e, e.burnDps * dt);
+      e.burnTtl = Math.max(0, e.burnTtl - dt);
+      if (!e.alive) continue;
+    }
     e.prevPos.x = e.pos.x;
     e.prevPos.y = e.pos.y;
 

@@ -1,5 +1,5 @@
 import type { GameState } from "../game";
-import { WEAPONS } from "../constants";
+import { EVOLUTIONS, WEAPONS } from "../constants";
 import { findAuraWeapon } from "../weapons";
 import { dealDamage } from "../damage";
 
@@ -20,7 +20,12 @@ export function updateAura(state: GameState, dt: number): void {
     const dx = e.pos.x - px;
     const dy = e.pos.y - py;
     if (dx * dx + dy * dy > r2) continue;
-    dealDamage(state, e, w.damage);
+    if (w.evolved) {
+      e.burnTtl = EVOLUTIONS.AURA.BURN_DURATION;
+      e.burnDps = w.damage * EVOLUTIONS.AURA.BURN_DPS_MULT;
+    } else {
+      dealDamage(state, e, w.damage);
+    }
   }
 
   w.tickCooldown += w.tickRate > 0 ? 1 / w.tickRate : 1;

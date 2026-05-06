@@ -1,6 +1,6 @@
 import type { GameState } from "../game";
 import type { Boomerang, Enemy } from "../types";
-import { WEAPONS } from "../constants";
+import { EVOLUTIONS, WEAPONS } from "../constants";
 import { findBoomerangWeapon } from "../weapons";
 import { dealDamage } from "../damage";
 
@@ -12,7 +12,13 @@ export function updateBoomerangs(state: GameState, dt: number): void {
     } else if (w.fireRate > 0) {
       const target = nearestEnemy(state, state.player.pos.x, state.player.pos.y);
       if (target) {
-        spawnBoomerang(state, w.damage, w.range, target);
+        spawnBoomerang(
+          state,
+          w.damage,
+          w.range,
+          target,
+          w.evolved ? EVOLUTIONS.BOOMERANG.TOTAL_LOBES : 1
+        );
         w.cooldownRemaining = 1 / w.fireRate;
       }
     }
@@ -34,7 +40,11 @@ export function updateBoomerangs(state: GameState, dt: number): void {
       b.pos.y += b.vel.y * dt;
       const odx = b.pos.x - b.origin.x;
       const ody = b.pos.y - b.origin.y;
-      if (odx * odx + ody * ody >= b.range * b.range) b.phase = "returning";
+      if (odx * odx + ody * ody >= b.range * b.range) {
+        b.phase = "returning";
+        b.lobe += 1;
+        b.lastHitByEnemy.clear();
+      }
     } else {
       const dx = px - b.pos.x;
       const dy = py - b.pos.y;
@@ -44,8 +54,21 @@ export function updateBoomerangs(state: GameState, dt: number): void {
       b.pos.x += b.vel.x * dt;
       b.pos.y += b.vel.y * dt;
       if (len <= WEAPONS.BOOMERANG.CATCH_DISTANCE) {
-        b.alive = false;
-        continue;
+        if (b.lobe < b.totalLobes) {
+          // Caught at player; go through to opposite side for the next outbound lobe.
+          const outAngle =
+            b.lobe === 2 ? b.fireAngle + Math.PI : b.fireAngle;
+          b.origin.x = px;
+          b.origin.y = py;
+          b.vel.x = Math.cos(outAngle) * b.speed;
+          b.vel.y = Math.sin(outAngle) * b.speed;
+          b.phase = "outgoing";
+          b.lobe += 1;
+          b.lastHitByEnemy.clear();
+        } else {
+          b.alive = false;
+          continue;
+        }
       }
     }
 
@@ -74,7 +97,8 @@ function spawnBoomerang(
   state: GameState,
   damage: number,
   range: number,
-  target: Enemy
+  target: Enemy,
+  totalLobes: number
 ): void {
   const px = state.player.pos.x;
   const py = state.player.pos.y;
@@ -82,6 +106,7 @@ function spawnBoomerang(
   const dy = target.pos.y - py;
   const len = Math.hypot(dx, dy) || 1;
   const speed = WEAPONS.BOOMERANG.OUT_SPEED;
+  const fireAngle = Math.atan2(dy, dx);
 
   state.boomerangs.push({
     kind: "boomerang",
@@ -97,6 +122,9 @@ function spawnBoomerang(
     speed,
     phase: "outgoing",
     lastHitByEnemy: new Map(),
+    lobe: 1,
+    totalLobes,
+    fireAngle,
   });
 }
 

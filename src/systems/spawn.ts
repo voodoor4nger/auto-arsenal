@@ -101,6 +101,8 @@ function makeChaser(state: GameState, x: number, y: number): Chaser {
     damage: ENEMY_CONTACT_DAMAGE,
     speed,
     critFlashTtl: 0,
+    burnTtl: 0,
+    burnDps: 0,
   };
 }
 
@@ -123,6 +125,8 @@ function makeShooter(state: GameState, x: number, y: number): Shooter {
     damage: SHOOTER_CONTACT_DAMAGE,
     speed,
     critFlashTtl: 0,
+    burnTtl: 0,
+    burnDps: 0,
     fireCooldown: SHOOTER_FIRE_INTERVAL,
   };
 }
