@@ -152,6 +152,56 @@ export const MOD_TAG_SUMMON_BG = "#7ad36b";
 export const MOD_TAG_SUMMON_TEXT = "#0b0d10";
 export const MOD_TAG_WEAPON_TEXT = "#0b0d10";
 
+export const EVOLUTION_LEVEL_THRESHOLD = 10;
+export const EVOLUTION_BORDER_COLOR = "#f5c542";
+export const EVOLUTION_TAG_BG = "#f5c542";
+export const EVOLUTION_TAG_TEXT = "#0b0d10";
+export const EVOLUTION_NAME_COLOR = "#f5d76e";
+export const EVOLUTION_SUBLINE_FONT = "italic 12px ui-monospace, Menlo, monospace";
+
+export const EVOLUTIONS = {
+  PISTOL: {
+    ID: "evo_pistol",
+    NAME: "Dual Pistols",
+    DESC: "Akimbo. Two shots per trigger pull, faster fire rate.",
+    OFFSET: 12,
+    FIRE_RATE_MULT: 1.2,
+  },
+  LASER: {
+    ID: "evo_laser",
+    NAME: "Solar Beam",
+    DESC: "Locked-on death ray. Continuous damage on tracked target.",
+    DPS_MULT: 1.5,
+    BEAM_WIDTH: 8,
+  },
+  MG: {
+    ID: "evo_mg",
+    NAME: "Minigun",
+    DESC: "BRRRT. Spins up to 20 rounds/sec with perfect accuracy.",
+    MAX_FIRE_RATE: 20,
+    SPIN_UP_DURATION: 1.5,
+    NO_TARGET_GRACE: 0.5,
+    SPIN_DOWN_DURATION: 0.5,
+    INDICATOR_RADIUS: 30,
+    INDICATOR_DOT_RADIUS: 3,
+    INDICATOR_SPIN_BASE: 4,
+    INDICATOR_SPIN_MAX: 18,
+  },
+  ROCKET: {
+    ID: "evo_rocket",
+    NAME: "MIRV Launcher",
+    DESC: "Multiple Independently-targetable Reentry Vehicle.",
+    SPLIT_DISTANCE: 200,
+    SPLIT_TIME: 0.4,
+    SUB_COUNT: 3,
+    SUB_ANGLES_DEG: [-20, 0, 20],
+    SUB_DAMAGE_MULT: 0.6,
+    SUB_RADIUS_MULT: 0.7,
+    SUB_HOMING: 0.4,
+    SUB_RENDER_RADIUS_MULT: 0.7,
+  },
+} as const;
+
 export const PAUSE_BUTTON_SIZE = 36;
 export const PAUSE_BUTTON_BG = "#1c2230";
 export const PAUSE_BUTTON_BG_HOVER = "#2a3548";

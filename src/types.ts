@@ -42,6 +42,7 @@ export type PistolWeapon = {
   pierce: number;
   homingStrength: number;
   cooldownRemaining: number;
+  evolved: boolean;
 };
 
 export type OrbWeapon = {
@@ -95,6 +96,10 @@ export type LaserWeapon = {
   beamWidth: number;
   beamCount: number;
   cooldownRemaining: number;
+  evolved: boolean;
+  beamTargetId: number;
+  beamEndX: number;
+  beamEndY: number;
 };
 
 export type MachineGunWeapon = {
@@ -104,6 +109,9 @@ export type MachineGunWeapon = {
   projectileSpeed: number;
   spread: number;
   cooldownRemaining: number;
+  evolved: boolean;
+  spinUp: number;
+  noTargetTimer: number;
 };
 
 export type RocketLauncherWeapon = {
@@ -114,6 +122,7 @@ export type RocketLauncherWeapon = {
   fireRate: number;
   rocketSpeed: number;
   cooldownRemaining: number;
+  evolved: boolean;
 };
 
 export type ClusterBombWeapon = {
@@ -232,6 +241,11 @@ export type Rocket = Entity & {
   ttl: number;
   exploded: boolean;
   explosionTtl: number;
+  originX: number;
+  originY: number;
+  splitDistance: number;
+  splitTimer: number;
+  homingStrength: number;
 };
 
 export type ClusterBomb = Entity & {

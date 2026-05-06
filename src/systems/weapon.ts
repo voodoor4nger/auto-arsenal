@@ -1,6 +1,7 @@
 import type { GameState } from "../game";
 import type { Enemy, PistolWeapon, Projectile } from "../types";
 import {
+  EVOLUTIONS,
   PROJECTILE_LIFETIME,
   PROJECTILE_RADIUS,
   WEAPON_RANGE,
@@ -58,20 +59,39 @@ function fireAt(state: GameState, w: PistolWeapon, target: Enemy): void {
     const vx = Math.cos(angle) * w.projectileSpeed;
     const vy = Math.sin(angle) * w.projectileSpeed;
 
-    const proj: Projectile = {
-      kind: "projectile",
-      id: state.nextEntityId++,
-      pos: { x: px, y: py },
-      prevPos: { x: px, y: py },
-      vel: { x: vx, y: vy },
-      radius: PROJECTILE_RADIUS,
-      alive: true,
-      damage: w.damage,
-      ttl: PROJECTILE_LIFETIME,
-      pierceRemaining: w.pierce,
-      hitIds: [],
-      homingStrength: w.homingStrength,
-    };
-    state.projectiles.push(proj);
+    if (w.evolved) {
+      const half = EVOLUTIONS.PISTOL.OFFSET / 2;
+      const perpX = -Math.sin(angle);
+      const perpY = Math.cos(angle);
+      spawnProjectile(state, w, px + perpX * -half, py + perpY * -half, vx, vy);
+      spawnProjectile(state, w, px + perpX * half, py + perpY * half, vx, vy);
+    } else {
+      spawnProjectile(state, w, px, py, vx, vy);
+    }
   }
+}
+
+function spawnProjectile(
+  state: GameState,
+  w: PistolWeapon,
+  x: number,
+  y: number,
+  vx: number,
+  vy: number
+): void {
+  const proj: Projectile = {
+    kind: "projectile",
+    id: state.nextEntityId++,
+    pos: { x, y },
+    prevPos: { x, y },
+    vel: { x: vx, y: vy },
+    radius: PROJECTILE_RADIUS,
+    alive: true,
+    damage: w.damage,
+    ttl: PROJECTILE_LIFETIME,
+    pierceRemaining: w.pierce,
+    hitIds: [],
+    homingStrength: w.homingStrength,
+  };
+  state.projectiles.push(proj);
 }

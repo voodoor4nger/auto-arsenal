@@ -28,6 +28,7 @@ import {
   ORB_ROTATION_MAX,
   ORB_ROTATION_STEP,
   PIERCE_MAX,
+  EVOLUTIONS,
   PROJECTILE_COLOR,
   WEAPON_NAME_ORB,
   WEAPON_NAME_PISTOL,
@@ -50,6 +51,7 @@ export type WeaponDef = {
   create: () => Weapon;
   summonMod: Mod;
   mods: Mod[];
+  evolutionMod?: Mod;
   getStats: (w: Weapon) => string;
 };
 
@@ -118,6 +120,7 @@ export const pistolWeaponDef: WeaponDef = {
     pierce: WEAPON_STARTER_PIERCE,
     homingStrength: WEAPON_STARTER_HOMING,
     cooldownRemaining: 0,
+    evolved: false,
   }),
   getStats: (w) => {
     const p = w as PistolWeapon;
@@ -199,6 +202,24 @@ export const pistolWeaponDef: WeaponDef = {
       },
     },
   ],
+  evolutionMod: {
+    id: EVOLUTIONS.PISTOL.ID,
+    name: EVOLUTIONS.PISTOL.NAME,
+    desc: EVOLUTIONS.PISTOL.DESC,
+    category: "evolution",
+    isEvolution: true,
+    isDamageRelevant: true,
+    eligible: (s) => {
+      const w = findPistolWeapon(s);
+      return !!w && !w.evolved;
+    },
+    apply: (s) => {
+      const w = findPistolWeapon(s);
+      if (!w || w.evolved) return;
+      w.fireRate *= EVOLUTIONS.PISTOL.FIRE_RATE_MULT;
+      w.evolved = true;
+    },
+  },
 };
 
 export const orbWeaponDef: WeaponDef = {
@@ -567,6 +588,10 @@ export const laserWeaponDef: WeaponDef = {
     beamWidth: WEAPONS.LASER.BEAM_WIDTH,
     beamCount: WEAPONS.LASER.INITIAL_BEAM_COUNT,
     cooldownRemaining: 0,
+    evolved: false,
+    beamTargetId: 0,
+    beamEndX: 0,
+    beamEndY: 0,
   }),
   getStats: (w) => {
     const l = w as LaserWeapon;
@@ -628,6 +653,23 @@ export const laserWeaponDef: WeaponDef = {
       },
     },
   ],
+  evolutionMod: {
+    id: EVOLUTIONS.LASER.ID,
+    name: EVOLUTIONS.LASER.NAME,
+    desc: EVOLUTIONS.LASER.DESC,
+    category: "evolution",
+    isEvolution: true,
+    isDamageRelevant: true,
+    eligible: (s) => {
+      const w = findLaserWeapon(s);
+      return !!w && !w.evolved;
+    },
+    apply: (s) => {
+      const w = findLaserWeapon(s);
+      if (!w || w.evolved) return;
+      w.evolved = true;
+    },
+  },
 };
 
 export const machineGunWeaponDef: WeaponDef = {
@@ -643,6 +685,9 @@ export const machineGunWeaponDef: WeaponDef = {
     projectileSpeed: WEAPONS.MG.PROJECTILE_SPEED,
     spread: WEAPONS.MG.SPREAD,
     cooldownRemaining: 0,
+    evolved: false,
+    spinUp: 0,
+    noTargetTimer: 0,
   }),
   getStats: (w) => {
     const m = w as MachineGunWeapon;
@@ -703,6 +748,23 @@ export const machineGunWeaponDef: WeaponDef = {
       },
     },
   ],
+  evolutionMod: {
+    id: EVOLUTIONS.MG.ID,
+    name: EVOLUTIONS.MG.NAME,
+    desc: EVOLUTIONS.MG.DESC,
+    category: "evolution",
+    isEvolution: true,
+    isDamageRelevant: true,
+    eligible: (s) => {
+      const w = findMachineGunWeapon(s);
+      return !!w && !w.evolved;
+    },
+    apply: (s) => {
+      const w = findMachineGunWeapon(s);
+      if (!w || w.evolved) return;
+      w.evolved = true;
+    },
+  },
 };
 
 export const rocketLauncherWeaponDef: WeaponDef = {
@@ -719,6 +781,7 @@ export const rocketLauncherWeaponDef: WeaponDef = {
     fireRate: WEAPONS.ROCKET.FIRE_RATE,
     rocketSpeed: WEAPONS.ROCKET.SPEED,
     cooldownRemaining: 0,
+    evolved: false,
   }),
   getStats: (w) => {
     const r = w as RocketLauncherWeapon;
@@ -785,6 +848,23 @@ export const rocketLauncherWeaponDef: WeaponDef = {
       },
     },
   ],
+  evolutionMod: {
+    id: EVOLUTIONS.ROCKET.ID,
+    name: EVOLUTIONS.ROCKET.NAME,
+    desc: EVOLUTIONS.ROCKET.DESC,
+    category: "evolution",
+    isEvolution: true,
+    isDamageRelevant: true,
+    eligible: (s) => {
+      const w = findRocketLauncherWeapon(s);
+      return !!w && !w.evolved;
+    },
+    apply: (s) => {
+      const w = findRocketLauncherWeapon(s);
+      if (!w || w.evolved) return;
+      w.evolved = true;
+    },
+  },
 };
 
 export const clusterBombWeaponDef: WeaponDef = {
@@ -1076,10 +1156,23 @@ const MOD_TO_WEAPON: Map<string, WeaponDef> = (() => {
   for (const def of WEAPON_DEFS) {
     m.set(def.summonMod.id, def);
     for (const mod of def.mods) m.set(mod.id, def);
+    if (def.evolutionMod) m.set(def.evolutionMod.id, def);
   }
   return m;
 })();
 
 export function getWeaponDefForMod(modId: string): WeaponDef | undefined {
   return MOD_TO_WEAPON.get(modId);
+}
+
+export function getEligibleEvolutionMods(state: GameState): Mod[] {
+  const owned = new Set(state.player.weapons.map((w) => w.type));
+  const out: Mod[] = [];
+  for (const def of WEAPON_DEFS) {
+    if (!owned.has(def.type)) continue;
+    if (!def.evolutionMod) continue;
+    if (!def.evolutionMod.eligible(state)) continue;
+    out.push(def.evolutionMod);
+  }
+  return out;
 }

@@ -1,6 +1,6 @@
 import type { GameState } from "../game";
-import type { Enemy, Rocket } from "../types";
-import { WEAPONS } from "../constants";
+import type { Enemy, RocketLauncherWeapon, Rocket } from "../types";
+import { EVOLUTIONS, HOMING_MAX_TURN_RATE, WEAPONS } from "../constants";
 import { findRocketLauncherWeapon } from "../weapons";
 import { dealDamage } from "../damage";
 
@@ -10,7 +10,7 @@ export function updateRockets(state: GameState, dt: number): void {
     if (w.cooldownRemaining > 0) {
       w.cooldownRemaining = Math.max(0, w.cooldownRemaining - dt);
     } else if (w.fireRate > 0) {
-      const target = nearestEnemy(state);
+      const target = nearestEnemy(state, state.player.pos.x, state.player.pos.y);
       if (target) {
         spawnRocket(state, w, target);
         w.cooldownRemaining = 1 / w.fireRate;
@@ -29,10 +29,26 @@ export function updateRockets(state: GameState, dt: number): void {
       continue;
     }
 
+    if (r.homingStrength > 0) {
+      const tgt = nearestEnemy(state, r.pos.x, r.pos.y);
+      if (tgt) steerToward(r.vel, tgt.pos.x - r.pos.x, tgt.pos.y - r.pos.y, r.homingStrength, dt);
+    }
+
     r.prevPos.x = r.pos.x;
     r.prevPos.y = r.pos.y;
     r.pos.x += r.vel.x * dt;
     r.pos.y += r.vel.y * dt;
+
+    if (r.splitDistance > 0) {
+      r.splitTimer -= dt;
+      const odx = r.pos.x - r.originX;
+      const ody = r.pos.y - r.originY;
+      if (odx * odx + ody * ody >= r.splitDistance * r.splitDistance || r.splitTimer <= 0) {
+        spawnSubRockets(state, r);
+        r.alive = false;
+      }
+      continue;
+    }
 
     r.ttl -= dt;
     if (r.ttl <= 0) {
@@ -42,6 +58,36 @@ export function updateRockets(state: GameState, dt: number): void {
 
     const hit = firstEnemyOverlap(state, r);
     if (hit) detonate(state, r, hit);
+  }
+}
+
+function spawnSubRockets(state: GameState, parent: Rocket): void {
+  const baseAngle = Math.atan2(parent.vel.y, parent.vel.x);
+  const speed = Math.hypot(parent.vel.x, parent.vel.y) || WEAPONS.ROCKET.SPEED;
+  const subDmgMult = EVOLUTIONS.ROCKET.SUB_DAMAGE_MULT;
+  const subRadiusMult = EVOLUTIONS.ROCKET.SUB_RADIUS_MULT;
+  for (const deg of EVOLUTIONS.ROCKET.SUB_ANGLES_DEG) {
+    const angle = baseAngle + (deg * Math.PI) / 180;
+    state.rockets.push({
+      kind: "rocket",
+      id: state.nextEntityId++,
+      pos: { x: parent.pos.x, y: parent.pos.y },
+      prevPos: { x: parent.pos.x, y: parent.pos.y },
+      vel: { x: Math.cos(angle) * speed, y: Math.sin(angle) * speed },
+      radius: WEAPONS.ROCKET.RADIUS * EVOLUTIONS.ROCKET.SUB_RENDER_RADIUS_MULT,
+      alive: true,
+      impactDamage: parent.impactDamage * subDmgMult,
+      explosionDamage: parent.explosionDamage * subDmgMult,
+      explosionRadius: parent.explosionRadius * subRadiusMult,
+      ttl: WEAPONS.ROCKET.LIFETIME,
+      exploded: false,
+      explosionTtl: 0,
+      originX: parent.pos.x,
+      originY: parent.pos.y,
+      splitDistance: 0,
+      splitTimer: 0,
+      homingStrength: EVOLUTIONS.ROCKET.SUB_HOMING,
+    });
   }
 }
 
@@ -70,15 +116,13 @@ function firstEnemyOverlap(state: GameState, r: Rocket): Enemy | null {
   return null;
 }
 
-function nearestEnemy(state: GameState): Enemy | null {
-  const px = state.player.pos.x;
-  const py = state.player.pos.y;
+function nearestEnemy(state: GameState, x: number, y: number): Enemy | null {
   let best: Enemy | null = null;
   let bestD2 = Infinity;
   for (const e of state.enemies) {
     if (!e.alive) continue;
-    const dx = e.pos.x - px;
-    const dy = e.pos.y - py;
+    const dx = e.pos.x - x;
+    const dy = e.pos.y - y;
     const d2 = dx * dx + dy * dy;
     if (d2 < bestD2) {
       best = e;
@@ -88,9 +132,29 @@ function nearestEnemy(state: GameState): Enemy | null {
   return best;
 }
 
+function steerToward(
+  vel: { x: number; y: number },
+  dx: number,
+  dy: number,
+  strength: number,
+  dt: number
+): void {
+  const targetAngle = Math.atan2(dy, dx);
+  const currentAngle = Math.atan2(vel.y, vel.x);
+  let delta = targetAngle - currentAngle;
+  if (delta > Math.PI) delta -= Math.PI * 2;
+  else if (delta < -Math.PI) delta += Math.PI * 2;
+  const maxTurn = HOMING_MAX_TURN_RATE * strength * dt;
+  const turn = Math.max(-maxTurn, Math.min(maxTurn, delta));
+  const newAngle = currentAngle + turn;
+  const speed = Math.hypot(vel.x, vel.y);
+  vel.x = Math.cos(newAngle) * speed;
+  vel.y = Math.sin(newAngle) * speed;
+}
+
 function spawnRocket(
   state: GameState,
-  w: { impactDamage: number; explosionDamage: number; explosionRadius: number; rocketSpeed: number },
+  w: RocketLauncherWeapon,
   target: Enemy
 ): void {
   const px = state.player.pos.x;
@@ -98,6 +162,7 @@ function spawnRocket(
   const dx = target.pos.x - px;
   const dy = target.pos.y - py;
   const len = Math.hypot(dx, dy) || 1;
+  const evolved = w.evolved;
   state.rockets.push({
     kind: "rocket",
     id: state.nextEntityId++,
@@ -112,5 +177,10 @@ function spawnRocket(
     ttl: WEAPONS.ROCKET.LIFETIME,
     exploded: false,
     explosionTtl: 0,
+    originX: px,
+    originY: py,
+    splitDistance: evolved ? EVOLUTIONS.ROCKET.SPLIT_DISTANCE : 0,
+    splitTimer: evolved ? EVOLUTIONS.ROCKET.SPLIT_TIME : 0,
+    homingStrength: 0,
   });
 }

@@ -1,10 +1,15 @@
 import type { GameState } from "./game";
-import { getEligibleSummonMods, getOwnedWeaponMods } from "./weapons";
+import {
+  getEligibleEvolutionMods,
+  getEligibleSummonMods,
+  getOwnedWeaponMods,
+} from "./weapons";
 import {
   BERSERKER_MAX_STACKS,
   BERSERKER_STACK,
   CRIT_MAX_STACKS,
   CRIT_STACK,
+  EVOLUTION_LEVEL_THRESHOLD,
   GLASS_CANNON_DAMAGE_MULT,
   GLASS_CANNON_HP_PENALTY,
   GREED_STEP,
@@ -21,7 +26,7 @@ import {
   VITALITY_HP,
 } from "./constants";
 
-export type ModCategory = "weapon" | "passive";
+export type ModCategory = "weapon" | "passive" | "evolution";
 
 export type Mod = {
   id: string;
@@ -30,6 +35,7 @@ export type Mod = {
   category: ModCategory;
   isSummon?: boolean;
   isDamageRelevant?: boolean;
+  isEvolution?: boolean;
   eligible: (state: GameState) => boolean;
   apply: (state: GameState) => void;
 };
@@ -209,7 +215,9 @@ function ensureDamageRelevant(state: GameState, picked: Mod[], allEligibleSource
 }
 
 function collectWeaponPool(state: GameState): Mod[] {
-  return [...getEligibleSummonMods(state), ...getOwnedWeaponMods(state)];
+  const evolutions =
+    state.player.level >= EVOLUTION_LEVEL_THRESHOLD ? getEligibleEvolutionMods(state) : [];
+  return [...evolutions, ...getEligibleSummonMods(state), ...getOwnedWeaponMods(state)];
 }
 
 function pickFrom(

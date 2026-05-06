@@ -1,6 +1,6 @@
 import type { GameState } from "../game";
-import type { Enemy } from "../types";
-import { WEAPONS } from "../constants";
+import type { Enemy, LaserWeapon } from "../types";
+import { EVOLUTIONS, WEAPONS, WEAPON_RANGE } from "../constants";
 import { findLaserWeapon } from "../weapons";
 import { dealDamage } from "../damage";
 
@@ -12,6 +12,11 @@ export function updateLaser(state: GameState, dt: number): void {
 
   const w = findLaserWeapon(state);
   if (!w) return;
+
+  if (w.evolved) {
+    updateSolarBeam(state, w, dt);
+    return;
+  }
 
   if (w.cooldownRemaining > 0) {
     w.cooldownRemaining = Math.max(0, w.cooldownRemaining - dt);
@@ -50,6 +55,47 @@ export function updateLaser(state: GameState, dt: number): void {
   }
 
   w.cooldownRemaining = 1 / w.fireRate;
+}
+
+function updateSolarBeam(state: GameState, w: LaserWeapon, dt: number): void {
+  const px = state.player.pos.x;
+  const py = state.player.pos.y;
+  const range2 = WEAPON_RANGE * WEAPON_RANGE;
+
+  let target: Enemy | null = null;
+  if (w.beamTargetId !== 0) {
+    const cur = state.enemies.find((e) => e.id === w.beamTargetId);
+    if (cur && cur.alive) {
+      const dx = cur.pos.x - px;
+      const dy = cur.pos.y - py;
+      if (dx * dx + dy * dy <= range2) target = cur;
+    }
+  }
+  if (!target) {
+    let bestD2 = Infinity;
+    for (const e of state.enemies) {
+      if (!e.alive) continue;
+      const dx = e.pos.x - px;
+      const dy = e.pos.y - py;
+      const d2 = dx * dx + dy * dy;
+      if (d2 <= range2 && d2 < bestD2) {
+        target = e;
+        bestD2 = d2;
+      }
+    }
+  }
+
+  if (!target) {
+    w.beamTargetId = 0;
+    return;
+  }
+
+  w.beamTargetId = target.id;
+  w.beamEndX = target.pos.x;
+  w.beamEndY = target.pos.y;
+
+  const dpsBase = w.damage * w.fireRate * EVOLUTIONS.LASER.DPS_MULT;
+  dealDamage(state, target, dpsBase * dt);
 }
 
 function nearestEnemies(state: GameState, n: number): Enemy[] {

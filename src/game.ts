@@ -85,6 +85,12 @@ import {
   MOD_TAG_SUMMON_BG,
   MOD_TAG_SUMMON_TEXT,
   MOD_TAG_WEAPON_TEXT,
+  EVOLUTIONS,
+  EVOLUTION_BORDER_COLOR,
+  EVOLUTION_NAME_COLOR,
+  EVOLUTION_SUBLINE_FONT,
+  EVOLUTION_TAG_BG,
+  EVOLUTION_TAG_TEXT,
   BERSERKER_HP_THRESHOLD,
   BERSERKER_VIGNETTE_INNER,
   BERSERKER_VIGNETTE_OUTER,
@@ -158,6 +164,8 @@ import {
 } from "./systems/extract";
 import {
   findAuraWeapon,
+  findLaserWeapon,
+  findMachineGunWeapon,
   findOrbWeapon,
   findPistolWeapon,
   findRepulsorWeapon,
@@ -554,7 +562,11 @@ function drawModCardTag(
   let textColor: string;
   let label: string;
 
-  if (mod.isSummon) {
+  if (mod.isEvolution) {
+    bg = EVOLUTION_TAG_BG;
+    textColor = EVOLUTION_TAG_TEXT;
+    label = "EVOLUTION";
+  } else if (mod.isSummon) {
     bg = MOD_TAG_SUMMON_BG;
     textColor = MOD_TAG_SUMMON_TEXT;
     label = "NEW WEAPON";
@@ -836,9 +848,11 @@ export function renderGame(
   drawBoomerangs(ctx, state, alpha, camX, camY);
   drawLightning(ctx, state, camX, camY);
   drawLaserBeams(ctx, state, camX, camY);
+  drawSolarBeam(ctx, state, camX, camY);
   drawRepulsorPulse(ctx, state, camX, camY);
   drawSwordSwing(ctx, state, camX, camY);
   drawPlayer(ctx, state, alpha, camX, camY);
+  drawMinigunIndicator(ctx, state, camX, camY);
   drawBerserkerVignette(ctx, state);
   drawExtractionArrow(ctx, state, camX, camY);
   drawHud(ctx, state);
@@ -1185,6 +1199,79 @@ function drawLaserBeams(
     ctx.moveTo(halfW + (b.start.x - camX), halfH + (b.start.y - camY));
     ctx.lineTo(halfW + (b.end.x - camX), halfH + (b.end.y - camY));
     ctx.stroke();
+  }
+  ctx.globalAlpha = prev;
+}
+
+function drawSolarBeam(
+  ctx: CanvasRenderingContext2D,
+  state: GameState,
+  camX: number,
+  camY: number
+): void {
+  const w = findLaserWeapon(state);
+  if (!w || !w.evolved || w.beamTargetId === 0) return;
+  const { width, height } = state.viewport;
+  const halfW = width / 2;
+  const halfH = height / 2;
+
+  const sx = halfW + (state.player.pos.x - camX);
+  const sy = halfH + (state.player.pos.y - camY);
+  const ex = halfW + (w.beamEndX - camX);
+  const ey = halfH + (w.beamEndY - camY);
+
+  // outer glow
+  ctx.strokeStyle = WEAPONS.LASER.COLOR;
+  ctx.lineWidth = EVOLUTIONS.LASER.BEAM_WIDTH + 4;
+  ctx.lineCap = "round";
+  const prev = ctx.globalAlpha;
+  ctx.globalAlpha = 0.35;
+  ctx.beginPath();
+  ctx.moveTo(sx, sy);
+  ctx.lineTo(ex, ey);
+  ctx.stroke();
+
+  // core
+  ctx.globalAlpha = 1;
+  ctx.lineWidth = EVOLUTIONS.LASER.BEAM_WIDTH;
+  ctx.strokeStyle = "#ffffff";
+  ctx.beginPath();
+  ctx.moveTo(sx, sy);
+  ctx.lineTo(ex, ey);
+  ctx.stroke();
+  ctx.globalAlpha = prev;
+}
+
+function drawMinigunIndicator(
+  ctx: CanvasRenderingContext2D,
+  state: GameState,
+  camX: number,
+  camY: number
+): void {
+  const w = findMachineGunWeapon(state);
+  if (!w || !w.evolved) return;
+  if (w.spinUp <= 0.05) return;
+
+  const { width, height } = state.viewport;
+  const sx = width / 2 + (state.player.pos.x - camX);
+  const sy = height / 2 + (state.player.pos.y - camY);
+
+  const spinSpeed =
+    EVOLUTIONS.MG.INDICATOR_SPIN_BASE +
+    (EVOLUTIONS.MG.INDICATOR_SPIN_MAX - EVOLUTIONS.MG.INDICATOR_SPIN_BASE) * w.spinUp;
+  const baseAngle = state.time * spinSpeed;
+  const radius = EVOLUTIONS.MG.INDICATOR_RADIUS;
+
+  const prev = ctx.globalAlpha;
+  ctx.globalAlpha = 0.4 + 0.6 * w.spinUp;
+  ctx.fillStyle = WEAPONS.MG.COLOR;
+  for (let i = 0; i < 3; i++) {
+    const a = baseAngle + (i * Math.PI * 2) / 3;
+    const dx = sx + Math.cos(a) * radius;
+    const dy = sy + Math.sin(a) * radius;
+    ctx.beginPath();
+    ctx.arc(dx, dy, EVOLUTIONS.MG.INDICATOR_DOT_RADIUS, 0, Math.PI * 2);
+    ctx.fill();
   }
   ctx.globalAlpha = prev;
 }
@@ -1606,8 +1693,11 @@ function drawWeaponList(ctx: CanvasRenderingContext2D, state: GameState): void {
 
   const rows = defs.map((def) => {
     const w = state.player.weapons.find((x) => x.type === def.type)!;
-    const text = `${def.name.padEnd(5)}  ${def.getStats(w)}`;
-    return { def, text };
+    const evolved = "evolved" in w && (w as { evolved: boolean }).evolved;
+    const displayName =
+      evolved && def.evolutionMod ? def.evolutionMod.name : def.name;
+    const text = `${displayName.padEnd(5)}  ${def.getStats(w)}`;
+    return { def, text, evolved };
   });
 
   let maxTextW = 0;
@@ -1621,7 +1711,7 @@ function drawWeaponList(ctx: CanvasRenderingContext2D, state: GameState): void {
     const rowY = bottomY - (rows.length - i) * ROW_H + ROW_H / 2;
     ctx.fillStyle = rows[i].def.color;
     ctx.fillRect(startX, rowY - SWATCH / 2, SWATCH, SWATCH);
-    ctx.fillStyle = HUD_COLOR;
+    ctx.fillStyle = rows[i].evolved ? EVOLUTION_NAME_COLOR : HUD_COLOR;
     ctx.fillText(rows[i].text, startX + SWATCH + GAP, rowY);
   }
 }
@@ -1843,33 +1933,42 @@ function drawStarterCard(
   ctx.arc(cx, iconY, 18, 0, Math.PI * 2);
   ctx.fill();
 
+  const PAD = 12;
+  const innerW = card.w - PAD * 2;
+
   // Name
   ctx.font = STARTER_NAME_FONT;
   ctx.fillStyle = unlocked ? MODAL_TEXT : STARTER_LOCKED_TEXT;
   ctx.textAlign = "center";
   ctx.textBaseline = "top";
-  ctx.fillText(def.name, cx, card.y + 70);
+  ctx.fillText(truncateText(ctx, def.name, innerW), cx, card.y + 70);
 
   // Stats — built fresh from the def's create() snapshot so the screen
   // shows the unmodded baseline numbers, not whatever any active run had.
   ctx.font = STARTER_STATS_FONT;
   ctx.fillStyle = unlocked ? MODAL_DESC_TEXT : STARTER_LOCKED_TEXT;
   const blank = def.create();
-  ctx.fillText(def.getStats(blank), cx, card.y + 100);
+  ctx.fillText(truncateText(ctx, def.getStats(blank), innerW), cx, card.y + 100);
 
-  // Status
+  // Status — bottom-anchored, wraps when long
+  ctx.font = STARTER_LOCK_FONT;
+  let text: string;
   if (!unlocked) {
-    ctx.font = STARTER_LOCK_FONT;
     ctx.fillStyle = STARTER_LOCKED_TEXT;
-    ctx.fillText(`Locked — ${getUnlockText(id)}`, cx, card.y + card.h - 32);
+    text = `Locked — ${getUnlockText(id)}`;
   } else if (selected) {
-    ctx.font = STARTER_LOCK_FONT;
     ctx.fillStyle = STARTER_SELECT_BORDER;
-    ctx.fillText("SELECTED", cx, card.y + card.h - 28);
+    text = "SELECTED";
   } else {
-    ctx.font = STARTER_LOCK_FONT;
     ctx.fillStyle = MODAL_DESC_TEXT;
-    ctx.fillText("Click to select", cx, card.y + card.h - 28);
+    text = "Click to select";
+  }
+  const lines = wrapText(ctx, text, innerW);
+  const lineH = 14;
+  const totalH = lines.length * lineH;
+  const startY = card.y + card.h - totalH - PAD;
+  for (let i = 0; i < lines.length; i++) {
+    ctx.fillText(lines[i], cx, startY + i * lineH);
   }
 }
 
@@ -1946,12 +2045,19 @@ function drawLevelUpModal(ctx: CanvasRenderingContext2D, state: GameState): void
     const r = rects[i];
     const hover = mx >= r.x && mx <= r.x + r.w && my >= r.y && my <= r.y + r.h;
     const mod = offer[i];
+    const isEvo = !!mod.isEvolution;
 
     ctx.fillStyle = hover ? MODAL_CARD_BG_HOVER : MODAL_CARD_BG;
     ctx.fillRect(r.x, r.y, r.w, r.h);
-    ctx.lineWidth = 2;
-    ctx.strokeStyle = hover ? MODAL_CARD_BORDER_HOVER : MODAL_CARD_BORDER;
-    ctx.strokeRect(r.x + 1, r.y + 1, r.w - 2, r.h - 2);
+    if (isEvo) {
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = EVOLUTION_BORDER_COLOR;
+      ctx.strokeRect(r.x + 1.5, r.y + 1.5, r.w - 3, r.h - 3);
+    } else {
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = hover ? MODAL_CARD_BORDER_HOVER : MODAL_CARD_BORDER;
+      ctx.strokeRect(r.x + 1, r.y + 1, r.w - 2, r.h - 2);
+    }
 
     drawModCardTag(ctx, r, mod);
 
@@ -1959,15 +2065,29 @@ function drawLevelUpModal(ctx: CanvasRenderingContext2D, state: GameState): void
     const innerW = r.w - PAD * 2;
 
     ctx.font = MODAL_NAME_FONT;
-    ctx.fillStyle = MODAL_TEXT;
+    ctx.fillStyle = isEvo ? EVOLUTION_NAME_COLOR : MODAL_TEXT;
     ctx.textAlign = "center";
     ctx.textBaseline = "alphabetic";
     ctx.fillText(truncateText(ctx, mod.name, innerW), cx, r.y + MOD_TAG_HEIGHT + 50);
 
+    let dy = r.y + MOD_TAG_HEIGHT + 90;
+    if (isEvo) {
+      const def = getWeaponDefForMod(mod.id);
+      if (def) {
+        ctx.font = EVOLUTION_SUBLINE_FONT;
+        ctx.fillStyle = MODAL_DESC_TEXT;
+        ctx.fillText(
+          truncateText(ctx, `evolves ${def.name}`, innerW),
+          cx,
+          r.y + MOD_TAG_HEIGHT + 72
+        );
+      }
+      dy = r.y + MOD_TAG_HEIGHT + 102;
+    }
+
     ctx.font = MODAL_DESC_FONT;
     ctx.fillStyle = MODAL_DESC_TEXT;
     const descLines = wrapText(ctx, mod.desc, innerW);
-    let dy = r.y + MOD_TAG_HEIGHT + 90;
     for (const line of descLines) {
       ctx.fillText(line, cx, dy);
       dy += 18;
