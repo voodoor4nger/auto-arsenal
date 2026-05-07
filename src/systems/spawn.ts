@@ -141,6 +141,8 @@ function makeChaser(state: GameState, x: number, y: number): Chaser {
     burnDps: 0,
     dropsLoot: true,
     freezeTtl: 0,
+    shoveVelocity: { x: 0, y: 0 },
+    shoveTimer: 0,
   };
 }
 
@@ -167,6 +169,8 @@ function makeShooter(state: GameState, x: number, y: number): Shooter {
     burnDps: 0,
     dropsLoot: true,
     freezeTtl: 0,
+    shoveVelocity: { x: 0, y: 0 },
+    shoveTimer: 0,
     fireCooldown: SHOOTER_FIRE_INTERVAL,
   };
 }

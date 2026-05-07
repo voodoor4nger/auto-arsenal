@@ -159,8 +159,6 @@ export type RepulsorWeapon = {
   pulseVizTtl: number;
   pulseVizRadius: number;
   evolved: boolean;
-  nextPulseIsPull: boolean;
-  pulseVizType: "push" | "pull";
 };
 
 export type SwordWeapon = {
@@ -308,6 +306,20 @@ export type PlasmaField = {
   perTickDamage: number;
 };
 
+export type GravityWell = Entity & {
+  kind: "gravityWell";
+  phase: "flying" | "active" | "fading";
+  travelTarget: Vec2;
+  travelDistance: number;
+  travelTraveled: number;
+  damage: number;
+  pullStrength: number;
+  ttl: number;
+  fadeTtl: number;
+  tickCooldown: number;
+  tickInterval: number;
+};
+
 export type ExtractionZone = {
   pos: Vec2;
   radius: number;
@@ -327,6 +339,8 @@ type EnemyBase = Entity & {
   burnDps: number;
   dropsLoot: boolean;
   freezeTtl: number;
+  shoveVelocity: Vec2;
+  shoveTimer: number;
 };
 
 export type Chaser = EnemyBase & { species: "chaser" };

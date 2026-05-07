@@ -7,6 +7,7 @@ import type {
   ExtractionZone,
   FloatingText,
   Gem,
+  GravityWell,
   LaserBeam,
   LightningBolt,
   Mine,
@@ -112,6 +113,14 @@ import {
   MOD_TAG_WEAPON_TEXT,
   EVOLUTIONS,
   EVOLUTION_BORDER_COLOR,
+  SINGULARITY_DURATION,
+  SINGULARITY_FADE_DURATION,
+  SINGULARITY_PROJECTILE_COLOR,
+  SINGULARITY_PROJECTILE_GLOW,
+  SINGULARITY_PROJECTILE_RADIUS,
+  SINGULARITY_TINT_COLOR,
+  SINGULARITY_WELL_INNER,
+  SINGULARITY_WELL_RING,
   EVOLUTION_NAME_COLOR,
   EVOLUTION_SUBLINE_FONT,
   EVOLUTION_TAG_BG,
@@ -181,7 +190,7 @@ import { updateLaser } from "./systems/laser";
 import { updateMachineGun } from "./systems/mg";
 import { updateRockets } from "./systems/rocket";
 import { updateClusterBombs } from "./systems/clusterBomb";
-import { updateRepulsor } from "./systems/repulsor";
+import { updateGravityWells, updateRepulsor } from "./systems/repulsor";
 import { updateSword } from "./systems/sword";
 import {
   getExtractMultiplier,
@@ -243,6 +252,7 @@ export type GameState = {
   clusterBombs: ClusterBomb[];
   plasmaFields: PlasmaField[];
   pickups: Pickup[];
+  gravityWells: GravityWell[];
   floatingTexts: FloatingText[];
   bombFlashTtl: number;
   bombShockwaveTtl: number;
@@ -290,6 +300,7 @@ export function initGame(viewport: { width: number; height: number }): GameState
     clusterBombs: [],
     plasmaFields: [],
     pickups: [],
+    gravityWells: [],
     floatingTexts: [],
     bombFlashTtl: 0,
     bombShockwaveTtl: 0,
@@ -368,6 +379,7 @@ function freshRun(state: GameState): void {
   state.clusterBombs = [];
   state.plasmaFields = [];
   state.pickups = [];
+  state.gravityWells = [];
   state.floatingTexts = [];
   state.bombFlashTtl = 0;
   state.bombShockwaveTtl = 0;
@@ -543,6 +555,7 @@ function tickPlaying(state: GameState, dt: number): void {
   updateRockets(state, dt);
   updateClusterBombs(state, dt);
   updateRepulsor(state, dt);
+  updateGravityWells(state, dt);
   updateSword(state, dt);
 
   const extracting = updateExtraction(state, dt);
@@ -874,6 +887,9 @@ function pruneDead(state: GameState): void {
   if (state.pickups.some((p) => !p.alive)) {
     state.pickups = state.pickups.filter((p) => p.alive);
   }
+  if (state.gravityWells.some((w) => !w.alive)) {
+    state.gravityWells = state.gravityWells.filter((w) => w.alive);
+  }
 }
 
 export function renderGame(
@@ -925,6 +941,7 @@ export function renderGame(
   drawLaserBeams(ctx, state, camX, camY);
   drawSolarBeam(ctx, state, camX, camY);
   drawRepulsorPulse(ctx, state, camX, camY);
+  drawGravityWells(ctx, state, alpha, camX, camY);
   drawSwordSwing(ctx, state, camX, camY);
   drawPlayer(ctx, state, alpha, camX, camY);
   drawMinigunIndicator(ctx, state, camX, camY);
@@ -1687,6 +1704,97 @@ function drawClusterBombs(
   }
 }
 
+function drawGravityWells(
+  ctx: CanvasRenderingContext2D,
+  state: GameState,
+  alpha: number,
+  camX: number,
+  camY: number
+): void {
+  if (state.gravityWells.length === 0) return;
+  const { width, height } = state.viewport;
+  const halfW = width / 2;
+  const halfH = height / 2;
+
+  for (const well of state.gravityWells) {
+    if (!well.alive) continue;
+
+    if (well.phase === "flying") {
+      const wx = well.prevPos.x + (well.pos.x - well.prevPos.x) * alpha;
+      const wy = well.prevPos.y + (well.pos.y - well.prevPos.y) * alpha;
+      const sx = halfW + (wx - camX);
+      const sy = halfH + (wy - camY);
+
+      const pulse = 0.6 + 0.4 * Math.sin(state.time * 12);
+      const prev = ctx.globalAlpha;
+      ctx.globalAlpha = 0.45 * pulse;
+      ctx.fillStyle = SINGULARITY_PROJECTILE_GLOW;
+      ctx.beginPath();
+      ctx.arc(sx, sy, SINGULARITY_PROJECTILE_RADIUS * 1.7, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = SINGULARITY_PROJECTILE_COLOR;
+      ctx.beginPath();
+      ctx.arc(sx, sy, SINGULARITY_PROJECTILE_RADIUS, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.globalAlpha = prev;
+      continue;
+    }
+
+    // Active or fading -- stationary swirl.
+    const sx = halfW + (well.pos.x - camX);
+    const sy = halfH + (well.pos.y - camY);
+    const fadeFactor =
+      well.phase === "fading" ? Math.max(0, well.fadeTtl / SINGULARITY_FADE_DURATION) : 1;
+    const radius = well.radius * fadeFactor;
+    const lifeT =
+      well.phase === "active" ? 1 - well.ttl / SINGULARITY_DURATION : 1;
+
+    const prev = ctx.globalAlpha;
+
+    // Outer dark fill.
+    ctx.globalAlpha = 0.45 * fadeFactor;
+    ctx.fillStyle = SINGULARITY_WELL_INNER;
+    ctx.beginPath();
+    ctx.arc(sx, sy, radius, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Tint overlay.
+    ctx.globalAlpha = 0.5 * fadeFactor;
+    ctx.fillStyle = SINGULARITY_TINT_COLOR;
+    ctx.beginPath();
+    ctx.arc(sx, sy, radius * 0.7, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Rotating ring at radius edge: 4 short arcs.
+    ctx.globalAlpha = 0.85 * fadeFactor;
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = SINGULARITY_WELL_RING;
+    const baseAngle = state.time * 4 + lifeT * 2;
+    for (let i = 0; i < 4; i++) {
+      const start = baseAngle + (i * Math.PI) / 2;
+      ctx.beginPath();
+      ctx.arc(sx, sy, radius, start, start + Math.PI / 4);
+      ctx.stroke();
+    }
+
+    // Inner spinning rune lines pulled inward.
+    ctx.globalAlpha = 0.6 * fadeFactor;
+    ctx.lineWidth = 1.5;
+    for (let i = 0; i < 6; i++) {
+      const a = baseAngle * -1.7 + (i * Math.PI) / 3;
+      const r1 = radius * 0.65;
+      const r2 = radius * 0.4;
+      ctx.beginPath();
+      ctx.moveTo(sx + Math.cos(a) * r1, sy + Math.sin(a) * r1);
+      ctx.lineTo(sx + Math.cos(a) * r2, sy + Math.sin(a) * r2);
+      ctx.stroke();
+    }
+
+    ctx.globalAlpha = prev;
+  }
+}
+
 function drawRepulsorPulse(
   ctx: CanvasRenderingContext2D,
   state: GameState,
@@ -1700,15 +1808,13 @@ function drawRepulsorPulse(
   const sy = height / 2 + (state.player.pos.y - camY);
 
   const t = 1 - w.pulseVizTtl / WEAPONS.REPULSOR.VIZ_DURATION;
-  const isPull = w.evolved && w.pulseVizType === "pull";
-  // Push expands outward; pull converges inward.
-  const radius = isPull ? w.pulseVizRadius * (1 - t) : w.pulseVizRadius * t;
+  const radius = w.pulseVizRadius * t;
   const alpha = w.pulseVizTtl / WEAPONS.REPULSOR.VIZ_DURATION;
 
   const prev = ctx.globalAlpha;
   ctx.globalAlpha = alpha;
   ctx.lineWidth = 3;
-  ctx.strokeStyle = isPull ? EVOLUTIONS.REPULSOR.PULL_COLOR : WEAPONS.REPULSOR.COLOR;
+  ctx.strokeStyle = WEAPONS.REPULSOR.COLOR;
   ctx.beginPath();
   ctx.arc(sx, sy, radius, 0, Math.PI * 2);
   ctx.stroke();

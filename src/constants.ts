@@ -183,6 +183,22 @@ export const DIRECTIONAL_WEIGHT = 3.0;
 export const STATIONARY_THRESHOLD = 10;
 
 export const SOLAR_BEAM_DPS_MULT = 2.5;
+
+export const REPULSOR_SHOVE_DURATION = 0.2;
+
+export const SINGULARITY_FIRE_RATE = 0.4;
+export const SINGULARITY_TRAVEL_SPEED = 350;
+export const SINGULARITY_MAX_RANGE = 300;
+export const SINGULARITY_DURATION = 2.5;
+export const SINGULARITY_PULL_STRENGTH = 200;
+export const SINGULARITY_TICK_RATE = 4;
+export const SINGULARITY_FADE_DURATION = 0.3;
+export const SINGULARITY_PROJECTILE_RADIUS = 8;
+export const SINGULARITY_PROJECTILE_COLOR = "#3a1a5a";
+export const SINGULARITY_PROJECTILE_GLOW = "#7a4abf";
+export const SINGULARITY_WELL_INNER = "#2a0d4a";
+export const SINGULARITY_WELL_RING = "#9d6bff";
+export const SINGULARITY_TINT_COLOR = "rgba(157, 107, 255, 0.35)";
 export const WEAPON_NAME_PISTOL = "PISTOL";
 export const WEAPON_NAME_ORB = "ORB";
 
@@ -319,12 +335,8 @@ export const EVOLUTIONS = {
   },
   REPULSOR: {
     ID: "evo_repulsor",
-    NAME: "Gravity Well",
-    DESC: "Alternates push and pull pulses. Faster cadence.",
-    PULSE_RATE_MULT: 1.25,
-    PULL_DISTANCE: 50,
-    PULL_DAMAGE_MULT: 0.5,
-    PULL_COLOR: "#b07dff",
+    NAME: "Singularity",
+    DESC: "Launches a gravity well that pulls and crushes enemies. Now they can't reach you.",
   },
   SWORD: {
     ID: "evo_sword",

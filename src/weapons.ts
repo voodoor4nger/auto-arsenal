@@ -31,6 +31,7 @@ import {
   PIERCE_MAX,
   EVOLUTIONS,
   PROJECTILE_COLOR,
+  SINGULARITY_FIRE_RATE,
   WEAPON_NAME_ORB,
   WEAPON_NAME_PISTOL,
   WEAPON_SLOT_MAX,
@@ -1076,8 +1077,6 @@ export const repulsorWeaponDef: WeaponDef = {
     pulseVizTtl: 0,
     pulseVizRadius: WEAPONS.REPULSOR.RADIUS,
     evolved: false,
-    nextPulseIsPull: false,
-    pulseVizType: "push",
   }),
   getStats: (w) => {
     const r = w as RepulsorWeapon;
@@ -1159,7 +1158,9 @@ export const repulsorWeaponDef: WeaponDef = {
     apply: (s) => {
       const w = findRepulsorWeapon(s);
       if (!w || w.evolved) return;
-      w.pulseRate *= EVOLUTIONS.REPULSOR.PULSE_RATE_MULT;
+      // Repurpose pulseRate as Singularity launch cadence (every 2.5s).
+      w.pulseRate = SINGULARITY_FIRE_RATE;
+      w.pulseCooldown = 1 / SINGULARITY_FIRE_RATE;
       w.evolved = true;
     },
   },

@@ -45,5 +45,16 @@ export function updateEnemyAI(state: GameState, dt: number): void {
 
     e.pos.x += e.vel.x * dt;
     e.pos.y += e.vel.y * dt;
+
+    if (e.shoveTimer > 0) {
+      e.pos.x += e.shoveVelocity.x * dt;
+      e.pos.y += e.shoveVelocity.y * dt;
+      e.shoveTimer -= dt;
+      if (e.shoveTimer <= 0) {
+        e.shoveTimer = 0;
+        e.shoveVelocity.x = 0;
+        e.shoveVelocity.y = 0;
+      }
+    }
   }
 }
