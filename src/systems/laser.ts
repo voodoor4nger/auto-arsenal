@@ -3,6 +3,7 @@ import type { Enemy, LaserWeapon } from "../types";
 import { EVOLUTIONS, WEAPONS, WEAPON_RANGE } from "../constants";
 import { findLaserWeapon } from "../weapons";
 import { dealDamage } from "../damage";
+import { pickPrimaryTarget, pickPrimaryTargets } from "../targeting";
 
 export function updateLaser(state: GameState, dt: number): void {
   for (const beam of state.laserBeams) beam.ttl -= dt;
@@ -24,7 +25,9 @@ export function updateLaser(state: GameState, dt: number): void {
   if (w.cooldownRemaining > 0) return;
   if (w.fireRate <= 0) return;
 
-  const targets = nearestEnemies(state, w.beamCount);
+  const targets = w.isPrimary
+    ? pickPrimaryTargets(state, w.beamCount)
+    : nearestEnemies(state, w.beamCount);
   if (targets.length === 0) return;
 
   const px = state.player.pos.x;
@@ -72,15 +75,19 @@ function updateSolarBeam(state: GameState, w: LaserWeapon, dt: number): void {
     }
   }
   if (!target) {
-    let bestD2 = Infinity;
-    for (const e of state.enemies) {
-      if (!e.alive) continue;
-      const dx = e.pos.x - px;
-      const dy = e.pos.y - py;
-      const d2 = dx * dx + dy * dy;
-      if (d2 <= range2 && d2 < bestD2) {
-        target = e;
-        bestD2 = d2;
+    if (w.isPrimary) {
+      target = pickPrimaryTarget(state, WEAPON_RANGE);
+    } else {
+      let bestD2 = Infinity;
+      for (const e of state.enemies) {
+        if (!e.alive) continue;
+        const dx = e.pos.x - px;
+        const dy = e.pos.y - py;
+        const d2 = dx * dx + dy * dy;
+        if (d2 <= range2 && d2 < bestD2) {
+          target = e;
+          bestD2 = d2;
+        }
       }
     }
   }

@@ -397,6 +397,15 @@ function startNewRun(state: GameState): void {
   const starter =
     findWeaponDefById(state.save.selectedStartingWeapon) ?? pistolWeaponDef;
   state.player.weapons = [starter.create()];
+  const primary = state.player.weapons[0];
+  if (
+    primary.type === "pistol" ||
+    primary.type === "laser" ||
+    primary.type === "mg" ||
+    primary.type === "rocket"
+  ) {
+    primary.isPrimary = true;
+  }
   applyUpgrades(state, state.save);
   state.scrapEarnedLastRun = 0;
   state.scrapLostLastRun = 0;

@@ -2,6 +2,7 @@ import type { GameState } from "../game";
 import type { Enemy, Projectile } from "../types";
 import { EVOLUTIONS, WEAPONS } from "../constants";
 import { findMachineGunWeapon } from "../weapons";
+import { pickPrimaryTarget } from "../targeting";
 
 export function updateMachineGun(state: GameState, dt: number): void {
   const w = findMachineGunWeapon(state);
@@ -11,7 +12,7 @@ export function updateMachineGun(state: GameState, dt: number): void {
     w.cooldownRemaining = Math.max(0, w.cooldownRemaining - dt);
   }
 
-  const target = nearestEnemy(state);
+  const target = w.isPrimary ? pickPrimaryTarget(state) : nearestEnemy(state);
 
   if (w.evolved) {
     if (target) {

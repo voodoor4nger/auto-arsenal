@@ -3,6 +3,7 @@ import type { Enemy, RocketLauncherWeapon, Rocket } from "../types";
 import { EVOLUTIONS, HOMING_MAX_TURN_RATE, WEAPONS } from "../constants";
 import { findRocketLauncherWeapon } from "../weapons";
 import { dealDamage } from "../damage";
+import { pickPrimaryTarget } from "../targeting";
 
 export function updateRockets(state: GameState, dt: number): void {
   const w = findRocketLauncherWeapon(state);
@@ -10,7 +11,9 @@ export function updateRockets(state: GameState, dt: number): void {
     if (w.cooldownRemaining > 0) {
       w.cooldownRemaining = Math.max(0, w.cooldownRemaining - dt);
     } else if (w.fireRate > 0) {
-      const target = nearestEnemy(state, state.player.pos.x, state.player.pos.y);
+      const target = w.isPrimary
+        ? pickPrimaryTarget(state)
+        : nearestEnemy(state, state.player.pos.x, state.player.pos.y);
       if (target) {
         spawnRocket(state, w, target);
         w.cooldownRemaining = 1 / w.fireRate;

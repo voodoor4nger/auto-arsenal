@@ -7,6 +7,7 @@ import {
   WEAPON_RANGE,
 } from "../constants";
 import { findPistolWeapon } from "../weapons";
+import { pickPrimaryTarget } from "../targeting";
 
 export function updateWeapon(state: GameState, dt: number): void {
   const w = findPistolWeapon(state);
@@ -18,7 +19,9 @@ export function updateWeapon(state: GameState, dt: number): void {
   if (w.cooldownRemaining > 0) return;
   if (w.fireRate <= 0) return;
 
-  const target = findNearestEnemyInRange(state, WEAPON_RANGE);
+  const target = w.isPrimary
+    ? pickPrimaryTarget(state, WEAPON_RANGE)
+    : findNearestEnemyInRange(state, WEAPON_RANGE);
   if (!target) return;
 
   fireAt(state, w, target);

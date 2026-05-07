@@ -43,6 +43,7 @@ export type PistolWeapon = {
   homingStrength: number;
   cooldownRemaining: number;
   evolved: boolean;
+  isPrimary?: boolean;
 };
 
 export type OrbWeapon = {
@@ -106,6 +107,7 @@ export type LaserWeapon = {
   beamTargetId: number;
   beamEndX: number;
   beamEndY: number;
+  isPrimary?: boolean;
 };
 
 export type MachineGunWeapon = {
@@ -118,6 +120,7 @@ export type MachineGunWeapon = {
   evolved: boolean;
   spinUp: number;
   noTargetTimer: number;
+  isPrimary?: boolean;
 };
 
 export type RocketLauncherWeapon = {
@@ -129,6 +132,7 @@ export type RocketLauncherWeapon = {
   rocketSpeed: number;
   cooldownRemaining: number;
   evolved: boolean;
+  isPrimary?: boolean;
 };
 
 export type ClusterBombWeapon = {

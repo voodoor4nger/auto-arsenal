@@ -158,6 +158,8 @@ export const THORNS_MAX_STACKS = 4;
 export const IRON_SKIN_STACK = 0.10;
 export const IRON_SKIN_MAX_STACKS = 4;
 export const WEAPON_SLOT_MAX = 3;
+export const DIRECTIONAL_WEIGHT = 3.0;
+export const STATIONARY_THRESHOLD = 10;
 export const WEAPON_NAME_PISTOL = "PISTOL";
 export const WEAPON_NAME_ORB = "ORB";
 
