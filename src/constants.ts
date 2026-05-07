@@ -17,8 +17,34 @@ export const ENEMY_SPEED = 90;
 export const ENEMY_CONTACT_DAMAGE = 10;
 export const ENEMY_COLOR = "#7ad36b";
 export const ENEMY_SPAWN_MARGIN = 80;
-export const ENEMY_HP_SCALE_PER_MIN = 0.45;
-export const ENEMY_SPEED_SCALE_PER_MIN = 0.1;
+
+export const SCALING = {
+  enemyHp: {
+    earlyRatePerMin: 0.45,
+    lateRatePerMin: 0.15,
+    kneeMinutes: 8,
+  },
+  enemySpeed: {
+    earlyRatePerMin: 0.10,
+    kneeMinutes: 8,
+  },
+  spawnCount: {
+    startCount: 1,
+    midCount: 6,
+    endCount: 8,
+    kneeMinutes: 8,
+    secondPhaseDurationMinutes: 7,
+  },
+  spawnInterval: {
+    startSeconds: 1.5,
+    kneeSeconds: 0.3,
+    kneeMinutes: 8,
+  },
+  threat: {
+    kneeMinutes: 8,
+    lateMinutesPerTick: 2,
+  },
+} as const;
 
 export const SHOOTER_RADIUS = 12;
 export const SHOOTER_HP_MULT = 2.0;
@@ -47,11 +73,6 @@ export const PROJECTILE_RADIUS = 4;
 export const PROJECTILE_LIFETIME = 2;
 export const PROJECTILE_COLOR = "#f0f5ff";
 
-export const SPAWN_RAMP_DURATION = 8 * 60;
-export const SPAWN_INTERVAL_START = 1.5;
-export const SPAWN_INTERVAL_END = 0.2;
-export const SPAWN_COUNT_START = 1;
-export const SPAWN_COUNT_END = 8;
 export const SPAWN_OFFSCREEN_MARGIN = 60;
 
 export const PICKUP_DROP_CHANCE = 0.01;

@@ -2,11 +2,10 @@ import type { GameState } from "../game";
 import type { Chaser, Enemy, Shooter } from "../types";
 import {
   ENEMY_HP,
-  ENEMY_HP_SCALE_PER_MIN,
   ENEMY_RADIUS,
   ENEMY_SPEED,
-  ENEMY_SPEED_SCALE_PER_MIN,
   ENEMY_CONTACT_DAMAGE,
+  SCALING,
   SHOOTER_CONTACT_DAMAGE,
   SHOOTER_FIRE_INTERVAL,
   SHOOTER_HP_MULT,
@@ -14,21 +13,16 @@ import {
   SHOOTER_SPAWN_RAMP_DURATION,
   SHOOTER_SPAWN_WEIGHT_MAX,
   SHOOTER_SPEED_MULT,
-  SPAWN_COUNT_END,
-  SPAWN_COUNT_START,
-  SPAWN_INTERVAL_END,
-  SPAWN_INTERVAL_START,
   SPAWN_OFFSCREEN_MARGIN,
-  SPAWN_RAMP_DURATION,
 } from "../constants";
 
 export function updateSpawn(state: GameState, dt: number): void {
   state.spawnTimer -= dt;
   if (state.spawnTimer > 0) return;
 
-  const t = Math.min(1, state.time / SPAWN_RAMP_DURATION);
-  const interval = lerp(SPAWN_INTERVAL_START, SPAWN_INTERVAL_END, t);
-  const count = Math.round(lerp(SPAWN_COUNT_START, SPAWN_COUNT_END, t));
+  const minutes = state.time / 60;
+  const interval = currentSpawnInterval(minutes);
+  const count = Math.round(currentSpawnCount(minutes));
 
   const shooterChance = shooterSpawnChance(state.time);
 
@@ -42,6 +36,48 @@ export function updateSpawn(state: GameState, dt: number): void {
 
 function lerp(a: number, b: number, t: number): number {
   return a + (b - a) * t;
+}
+
+function clamp01(x: number): number {
+  if (x < 0) return 0;
+  if (x > 1) return 1;
+  return x;
+}
+
+function currentSpawnCount(minutes: number): number {
+  const cfg = SCALING.spawnCount;
+  if (minutes <= cfg.kneeMinutes) {
+    return lerp(cfg.startCount, cfg.midCount, clamp01(minutes / cfg.kneeMinutes));
+  }
+  return lerp(
+    cfg.midCount,
+    cfg.endCount,
+    clamp01((minutes - cfg.kneeMinutes) / cfg.secondPhaseDurationMinutes)
+  );
+}
+
+function currentSpawnInterval(minutes: number): number {
+  const cfg = SCALING.spawnInterval;
+  if (minutes <= cfg.kneeMinutes) {
+    return lerp(cfg.startSeconds, cfg.kneeSeconds, clamp01(minutes / cfg.kneeMinutes));
+  }
+  return cfg.kneeSeconds;
+}
+
+function enemyHpMultiplier(minutes: number): number {
+  const cfg = SCALING.enemyHp;
+  if (minutes <= cfg.kneeMinutes) {
+    return 1 + minutes * cfg.earlyRatePerMin;
+  }
+  const earlyScale = 1 + cfg.kneeMinutes * cfg.earlyRatePerMin;
+  const lateScale = (minutes - cfg.kneeMinutes) * cfg.lateRatePerMin;
+  return earlyScale + lateScale;
+}
+
+function enemySpeedMultiplier(minutes: number): number {
+  const cfg = SCALING.enemySpeed;
+  const cappedMinutes = Math.min(minutes, cfg.kneeMinutes);
+  return 1 + cappedMinutes * cfg.earlyRatePerMin;
 }
 
 function shooterSpawnChance(time: number): number {
@@ -86,8 +122,8 @@ function randomEdgePosition(state: GameState): { x: number; y: number } {
 
 function makeChaser(state: GameState, x: number, y: number): Chaser {
   const minutes = state.time / 60;
-  const hp = Math.round(ENEMY_HP * (1 + minutes * ENEMY_HP_SCALE_PER_MIN));
-  const speed = ENEMY_SPEED * (1 + minutes * ENEMY_SPEED_SCALE_PER_MIN);
+  const hp = Math.round(ENEMY_HP * enemyHpMultiplier(minutes));
+  const speed = ENEMY_SPEED * enemySpeedMultiplier(minutes);
   return {
     kind: "enemy",
     species: "chaser",
@@ -112,8 +148,8 @@ function makeShooter(state: GameState, x: number, y: number): Shooter {
   const minutes = state.time / 60;
   const baseHp = ENEMY_HP * SHOOTER_HP_MULT;
   const baseSpeed = ENEMY_SPEED * SHOOTER_SPEED_MULT;
-  const hp = Math.round(baseHp * (1 + minutes * ENEMY_HP_SCALE_PER_MIN));
-  const speed = baseSpeed * (1 + minutes * ENEMY_SPEED_SCALE_PER_MIN);
+  const hp = Math.round(baseHp * enemyHpMultiplier(minutes));
+  const speed = baseSpeed * enemySpeedMultiplier(minutes);
   return {
     kind: "enemy",
     species: "shooter",

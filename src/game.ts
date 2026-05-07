@@ -84,7 +84,7 @@ import {
   PROJECTILE_RADIUS,
   SHOOTER_COLOR,
   SHOOTER_PROJ_COLOR,
-  SPAWN_INTERVAL_START,
+  SCALING,
   TITLE_FONT,
   WEAPONS,
   SCRAP_PER_SECOND,
@@ -302,7 +302,7 @@ export function initGame(viewport: { width: number; height: number }): GameState
     camera: { pos: { x: 0, y: 0 }, prevPos: { x: 0, y: 0 } },
     input: createInput(),
     viewport,
-    spawnTimer: SPAWN_INTERVAL_START,
+    spawnTimer: SCALING.spawnInterval.startSeconds,
     pendingLevelUps: 0,
     offer: null,
     killCount: 0,
@@ -378,7 +378,7 @@ function freshRun(state: GameState): void {
   state.clockTintTtl = 0;
   state.clockVignetteTtl = 0;
   state.camera = { pos: { x: 0, y: 0 }, prevPos: { x: 0, y: 0 } };
-  state.spawnTimer = SPAWN_INTERVAL_START;
+  state.spawnTimer = SCALING.spawnInterval.startSeconds;
   state.pendingLevelUps = 0;
   state.offer = null;
   state.killCount = 0;
@@ -2065,7 +2065,7 @@ function drawHud(ctx: CanvasRenderingContext2D, state: GameState): void {
 
   ctx.textAlign = "center";
   ctx.fillText(formatTime(state.time), state.viewport.width / 2, 12);
-  ctx.fillText(`Threat: ${Math.floor(state.time / 60)}`, state.viewport.width / 2, 32);
+  ctx.fillText(`Threat: ${currentThreatLevel(state.time)}`, state.viewport.width / 2, 32);
 
   drawExtractionStatus(ctx, state);
   drawWeaponStats(ctx, state);
@@ -2189,6 +2189,13 @@ function drawWeaponStats(ctx: CanvasRenderingContext2D, state: GameState): void 
   for (let i = 0; i < lines.length; i++) {
     ctx.fillText(lines[i], 12, baseY - (lines.length - 1 - i) * lineH);
   }
+}
+
+function currentThreatLevel(seconds: number): number {
+  const minutes = seconds / 60;
+  const knee = SCALING.threat.kneeMinutes;
+  if (minutes <= knee) return Math.floor(minutes);
+  return knee + Math.floor((minutes - knee) / SCALING.threat.lateMinutesPerTick);
 }
 
 function formatTime(seconds: number): string {
