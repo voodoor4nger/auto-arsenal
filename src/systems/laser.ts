@@ -1,6 +1,6 @@
 import type { GameState } from "../game";
 import type { Enemy, LaserWeapon } from "../types";
-import { EVOLUTIONS, WEAPONS, WEAPON_RANGE } from "../constants";
+import { SOLAR_BEAM_DPS_MULT, WEAPONS, WEAPON_RANGE } from "../constants";
 import { findLaserWeapon } from "../weapons";
 import { dealDamage } from "../damage";
 import { pickPrimaryTarget, pickPrimaryTargets } from "../targeting";
@@ -64,45 +64,74 @@ function updateSolarBeam(state: GameState, w: LaserWeapon, dt: number): void {
   const px = state.player.pos.x;
   const py = state.player.pos.y;
   const range2 = WEAPON_RANGE * WEAPON_RANGE;
+  const enemyById = new Map<number, Enemy>();
+  for (const e of state.enemies) enemyById.set(e.id, e);
 
-  let target: Enemy | null = null;
-  if (w.beamTargetId !== 0) {
-    const cur = state.enemies.find((e) => e.id === w.beamTargetId);
-    if (cur && cur.alive) {
-      const dx = cur.pos.x - px;
-      const dy = cur.pos.y - py;
-      if (dx * dx + dy * dy <= range2) target = cur;
+  // Step 1: keep beams whose locked target is still alive and in range.
+  const lockedIds = new Set<number>();
+  const kept: { targetId: number; endX: number; endY: number }[] = [];
+  for (const beam of w.beams) {
+    const cur = enemyById.get(beam.targetId);
+    if (!cur || !cur.alive) continue;
+    const dx = cur.pos.x - px;
+    const dy = cur.pos.y - py;
+    if (dx * dx + dy * dy > range2) continue;
+    beam.endX = cur.pos.x;
+    beam.endY = cur.pos.y;
+    kept.push(beam);
+    lockedIds.add(beam.targetId);
+  }
+
+  // Step 2: pick fresh targets up to beamCount, excluding already-locked ids.
+  while (kept.length < w.beamCount) {
+    const fresh = w.isPrimary
+      ? pickPrimaryTarget(state, WEAPON_RANGE, lockedIds)
+      : nearestEnemyExcept(state, WEAPON_RANGE, lockedIds);
+    if (!fresh) break;
+    kept.push({ targetId: fresh.id, endX: fresh.pos.x, endY: fresh.pos.y });
+    lockedIds.add(fresh.id);
+  }
+
+  w.beams = kept;
+  if (w.beams.length === 0) return;
+
+  // Step 3: damage every enemy whose body overlaps each beam's line.
+  const halfWidth = w.beamWidth * 0.5;
+  const continuousDps = w.damage * w.fireRate * SOLAR_BEAM_DPS_MULT;
+  const perBeamFrameDamage = continuousDps * dt;
+  for (const beam of w.beams) {
+    for (const e of state.enemies) {
+      if (!e.alive) continue;
+      const reach = halfWidth + e.radius;
+      if (distSqPointSegment(e.pos.x, e.pos.y, px, py, beam.endX, beam.endY) > reach * reach)
+        continue;
+      dealDamage(state, e, perBeamFrameDamage);
     }
   }
-  if (!target) {
-    if (w.isPrimary) {
-      target = pickPrimaryTarget(state, WEAPON_RANGE);
-    } else {
-      let bestD2 = Infinity;
-      for (const e of state.enemies) {
-        if (!e.alive) continue;
-        const dx = e.pos.x - px;
-        const dy = e.pos.y - py;
-        const d2 = dx * dx + dy * dy;
-        if (d2 <= range2 && d2 < bestD2) {
-          target = e;
-          bestD2 = d2;
-        }
-      }
+}
+
+function nearestEnemyExcept(
+  state: GameState,
+  range: number,
+  excluded: Set<number>
+): Enemy | null {
+  const px = state.player.pos.x;
+  const py = state.player.pos.y;
+  const r2 = range * range;
+  let best: Enemy | null = null;
+  let bestD2 = Infinity;
+  for (const e of state.enemies) {
+    if (!e.alive) continue;
+    if (excluded.has(e.id)) continue;
+    const dx = e.pos.x - px;
+    const dy = e.pos.y - py;
+    const d2 = dx * dx + dy * dy;
+    if (d2 <= r2 && d2 < bestD2) {
+      best = e;
+      bestD2 = d2;
     }
   }
-
-  if (!target) {
-    w.beamTargetId = 0;
-    return;
-  }
-
-  w.beamTargetId = target.id;
-  w.beamEndX = target.pos.x;
-  w.beamEndY = target.pos.y;
-
-  const dpsBase = w.damage * w.fireRate * EVOLUTIONS.LASER.DPS_MULT;
-  dealDamage(state, target, dpsBase * dt);
+  return best;
 }
 
 function nearestEnemies(state: GameState, n: number): Enemy[] {

@@ -181,6 +181,8 @@ export const IRON_SKIN_MAX_STACKS = 4;
 export const WEAPON_SLOT_MAX = 3;
 export const DIRECTIONAL_WEIGHT = 3.0;
 export const STATIONARY_THRESHOLD = 10;
+
+export const SOLAR_BEAM_DPS_MULT = 2.5;
 export const WEAPON_NAME_PISTOL = "PISTOL";
 export const WEAPON_NAME_ORB = "ORB";
 
@@ -232,8 +234,7 @@ export const EVOLUTIONS = {
   LASER: {
     ID: "evo_laser",
     NAME: "Solar Beam",
-    DESC: "Locked-on death ray. Continuous damage on tracked target.",
-    DPS_MULT: 1.5,
+    DESC: "Locked-on death ray. Continuous damage along beam line.",
     BEAM_WIDTH: 8,
   },
   MG: {

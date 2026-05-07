@@ -684,9 +684,7 @@ export const laserWeaponDef: WeaponDef = {
     beamCount: WEAPONS.LASER.INITIAL_BEAM_COUNT,
     cooldownRemaining: 0,
     evolved: false,
-    beamTargetId: 0,
-    beamEndX: 0,
-    beamEndY: 0,
+    beams: [],
   }),
   getStats: (w) => {
     const l = w as LaserWeapon;

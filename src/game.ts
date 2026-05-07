@@ -1597,35 +1597,35 @@ function drawSolarBeam(
   camY: number
 ): void {
   const w = findLaserWeapon(state);
-  if (!w || !w.evolved || w.beamTargetId === 0) return;
+  if (!w || !w.evolved || w.beams.length === 0) return;
   const { width, height } = state.viewport;
   const halfW = width / 2;
   const halfH = height / 2;
-
   const sx = halfW + (state.player.pos.x - camX);
   const sy = halfH + (state.player.pos.y - camY);
-  const ex = halfW + (w.beamEndX - camX);
-  const ey = halfH + (w.beamEndY - camY);
 
-  // outer glow
-  ctx.strokeStyle = WEAPONS.LASER.COLOR;
-  ctx.lineWidth = EVOLUTIONS.LASER.BEAM_WIDTH + 4;
   ctx.lineCap = "round";
   const prev = ctx.globalAlpha;
-  ctx.globalAlpha = 0.35;
-  ctx.beginPath();
-  ctx.moveTo(sx, sy);
-  ctx.lineTo(ex, ey);
-  ctx.stroke();
+  for (const beam of w.beams) {
+    const ex = halfW + (beam.endX - camX);
+    const ey = halfH + (beam.endY - camY);
 
-  // core
-  ctx.globalAlpha = 1;
-  ctx.lineWidth = EVOLUTIONS.LASER.BEAM_WIDTH;
-  ctx.strokeStyle = "#ffffff";
-  ctx.beginPath();
-  ctx.moveTo(sx, sy);
-  ctx.lineTo(ex, ey);
-  ctx.stroke();
+    ctx.strokeStyle = WEAPONS.LASER.COLOR;
+    ctx.lineWidth = EVOLUTIONS.LASER.BEAM_WIDTH + 4;
+    ctx.globalAlpha = 0.35;
+    ctx.beginPath();
+    ctx.moveTo(sx, sy);
+    ctx.lineTo(ex, ey);
+    ctx.stroke();
+
+    ctx.globalAlpha = 1;
+    ctx.lineWidth = EVOLUTIONS.LASER.BEAM_WIDTH;
+    ctx.strokeStyle = "#ffffff";
+    ctx.beginPath();
+    ctx.moveTo(sx, sy);
+    ctx.lineTo(ex, ey);
+    ctx.stroke();
+  }
   ctx.globalAlpha = prev;
 }
 

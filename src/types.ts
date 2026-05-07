@@ -96,6 +96,12 @@ export type MinesWeapon = {
   evolved: boolean;
 };
 
+export type SolarBeam = {
+  targetId: number;
+  endX: number;
+  endY: number;
+};
+
 export type LaserWeapon = {
   type: "laser";
   damage: number;
@@ -104,9 +110,7 @@ export type LaserWeapon = {
   beamCount: number;
   cooldownRemaining: number;
   evolved: boolean;
-  beamTargetId: number;
-  beamEndX: number;
-  beamEndY: number;
+  beams: SolarBeam[];
   isPrimary?: boolean;
 };
 
