@@ -2057,10 +2057,11 @@ function drawHud(ctx: CanvasRenderingContext2D, state: GameState): void {
     32
   );
   ctx.fillText(`DMG x${state.player.globalDamageMult.toFixed(2)}`, 12, 52);
+  ctx.fillText(`Kills: ${state.killCount}`, 12, 72);
   const salvageMult = getSalvageMultiplier(state.save);
   const displayScrap = Math.floor(state.player.runScrap * salvageMult);
   ctx.fillStyle = WORKSHOP_SCRAP_COLOR;
-  ctx.fillText(`Run Scrap: ${displayScrap}`, 12, 72);
+  ctx.fillText(`Run Scrap: ${displayScrap}`, 12, 92);
   ctx.fillStyle = HUD_COLOR;
 
   ctx.textAlign = "center";
