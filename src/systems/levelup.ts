@@ -10,15 +10,28 @@ import {
 import { rollOffer, type Mod } from "../mods";
 
 export function maybeStartLevelUp(state: GameState): void {
-  if (state.pendingLevelUps <= 0) return;
   if (state.offer) return;
-  const cards = rollOffer(state, LEVELUP_OFFER_COUNT);
-  if (cards.length === 0) {
-    state.pendingLevelUps = 0;
+  if (state.pendingLevelUps > 0) {
+    const cards = rollOffer(state, LEVELUP_OFFER_COUNT);
+    if (cards.length === 0) {
+      state.pendingLevelUps = 0;
+      return;
+    }
+    state.offer = cards;
+    state.pendingModalSource = "levelup";
+    state.phase = "levelup";
     return;
   }
-  state.offer = cards;
-  state.phase = "levelup";
+  if (state.pendingChestRolls > 0) {
+    const cards = rollOffer(state, LEVELUP_OFFER_COUNT);
+    if (cards.length === 0) {
+      state.pendingChestRolls = 0;
+      return;
+    }
+    state.offer = cards;
+    state.pendingModalSource = "chest";
+    state.phase = "levelup";
+  }
 }
 
 export function handleLevelUpClick(state: GameState): void {
@@ -37,13 +50,19 @@ export function handleLevelUpClick(state: GameState): void {
 
   const picked = state.offer[idx];
   picked.apply(state);
+  state.modStacks[picked.id] = (state.modStacks[picked.id] ?? 0) + 1;
   state.offer = null;
-  state.pendingLevelUps -= 1;
 
-  if (state.pendingLevelUps > 0) {
+  if (state.pendingModalSource === "chest") {
+    state.pendingChestRolls = Math.max(0, state.pendingChestRolls - 1);
+  } else {
+    state.pendingLevelUps = Math.max(0, state.pendingLevelUps - 1);
+  }
+  state.pendingModalSource = null;
+
+  if (state.pendingLevelUps > 0 || state.pendingChestRolls > 0) {
     maybeStartLevelUp(state);
   } else {
-    state.pendingLevelUps = 0;
     state.phase = "playing";
   }
 }

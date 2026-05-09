@@ -163,6 +163,8 @@ export const PASSIVE_MODS: Mod[] = [
         } else if (w.type === "clusterBomb") {
           w.impactDamage *= GLASS_CANNON_DAMAGE_MULT;
           w.fragmentDamage *= GLASS_CANNON_DAMAGE_MULT;
+        } else if (w.type === "drone") {
+          w.droneDamage *= GLASS_CANNON_DAMAGE_MULT;
         } else {
           w.damage *= GLASS_CANNON_DAMAGE_MULT;
         }

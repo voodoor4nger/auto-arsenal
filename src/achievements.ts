@@ -43,6 +43,13 @@ export const ACHIEVEMENT_DEFS: Achievement[] = [
     criteria: (s) =>
       (s.extraction?.windowIndex ?? 0) >= ACHIEVEMENTS.EXTRACT_MIN_9.WINDOW_THRESHOLD,
   },
+  {
+    id: ACHIEVEMENTS.EXTRACT_BRUTES_20.ID,
+    desc: ACHIEVEMENTS.EXTRACT_BRUTES_20.DESC,
+    weaponId: ACHIEVEMENTS.EXTRACT_BRUTES_20.WEAPON,
+    weaponName: nameForWeapon(ACHIEVEMENTS.EXTRACT_BRUTES_20.WEAPON),
+    criteria: (s) => s.brutesKilled >= ACHIEVEMENTS.EXTRACT_BRUTES_20.BRUTE_THRESHOLD,
+  },
 ];
 
 export function checkAchievements(state: GameState): Achievement[] {

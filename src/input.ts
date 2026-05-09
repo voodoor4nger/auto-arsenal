@@ -16,6 +16,7 @@ export function createInput(): InputState {
   window.addEventListener("keydown", (e) => {
     if (!input.keys.has(e.code)) input.justPressed.add(e.code);
     input.keys.add(e.code);
+    if (e.code === "Tab") e.preventDefault();
   });
   window.addEventListener("keyup", (e) => {
     input.keys.delete(e.code);

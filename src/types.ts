@@ -6,7 +6,9 @@ export type Phase =
   | "extracted"
   | "lost"
   | "workshop"
-  | "weapon-select";
+  | "weapon-select"
+  | "first-pick"
+  | "paused-summary";
 
 export type Vec2 = { x: number; y: number };
 
@@ -31,7 +33,10 @@ export type WeaponType =
   | "rocket"
   | "clusterBomb"
   | "repulsor"
-  | "sword";
+  | "sword"
+  | "ricochet"
+  | "drone"
+  | "frost_nova";
 
 export type PistolWeapon = {
   type: "pistol";
@@ -175,6 +180,41 @@ export type SwordWeapon = {
   evolved: boolean;
 };
 
+export type RicochetWeapon = {
+  type: "ricochet";
+  damage: number;
+  fireRate: number;
+  projectileSpeed: number;
+  bounceCount: number;
+  bounceSearchRange: number;
+  cooldownRemaining: number;
+  evolved: boolean;
+};
+
+export type FrostNovaWeapon = {
+  type: "frost_nova";
+  damage: number;
+  radius: number;
+  pulseRate: number;
+  slowAmount: number;
+  slowDuration: number;
+  pulseCooldown: number;
+  pulseVizTtl: number;
+  pulseVizRadius: number;
+  evolved: boolean;
+};
+
+export type DroneWeapon = {
+  type: "drone";
+  droneCount: number;
+  droneDamage: number;
+  droneFireRate: number;
+  droneProjectileSpeed: number;
+  droneRange: number;
+  droneFollowOffset: number;
+  evolved: boolean;
+};
+
 export type Weapon =
   | PistolWeapon
   | OrbWeapon
@@ -187,7 +227,10 @@ export type Weapon =
   | RocketLauncherWeapon
   | ClusterBombWeapon
   | RepulsorWeapon
-  | SwordWeapon;
+  | SwordWeapon
+  | RicochetWeapon
+  | DroneWeapon
+  | FrostNovaWeapon;
 
 export type Player = Entity & {
   kind: "player";
@@ -210,6 +253,27 @@ export type Player = Entity & {
   berserkerStacks: number;
   thornsStacks: number;
   ironSkinStacks: number;
+  dashCooldown: number;
+  dashCooldownMax: number;
+  dashIframeTimer: number;
+  dashActiveTimer: number;
+  dashStartPos: Vec2;
+  dashEndPos: Vec2;
+  dashAfterimageTimer: number;
+  lastMovementDirection: Vec2;
+};
+
+export type DashAfterimage = {
+  pos: Vec2;
+  ttl: number;
+  ttlMax: number;
+  baseAlpha: number;
+};
+
+export type DashFlash = {
+  pos: Vec2;
+  ttl: number;
+  ttlMax: number;
 };
 
 export type Orb = Entity & {
@@ -267,6 +331,7 @@ export type Rocket = Entity & {
   splitDistance: number;
   splitTimer: number;
   homingStrength: number;
+  targetId?: number;
 };
 
 export type ClusterBomb = Entity & {
@@ -279,12 +344,39 @@ export type ClusterBomb = Entity & {
   ttl: number;
 };
 
-export type PickupType = "bomb" | "magnet" | "heart" | "scrap_bag" | "clock";
+export type RicochetProjectile = Entity & {
+  kind: "ricochetProjectile";
+  damage: number;
+  speed: number;
+  bouncesRemaining: number;
+  bounceIndex: number;
+  searchRange: number;
+  hitIds: number[];
+  ttl: number;
+  evolved: boolean;
+  damagePerBounceMult: number;
+  trail: { x: number; y: number; ttl: number; ttlMax: number }[];
+};
+
+export type RicochetSpark = {
+  pos: Vec2;
+  ttl: number;
+  ttlMax: number;
+};
+
+export type PickupType =
+  | "bomb"
+  | "magnet"
+  | "heart"
+  | "scrap_bag"
+  | "clock"
+  | "treasure_chest";
 
 export type Pickup = Entity & {
   kind: "pickup";
   pickupType: PickupType;
   spawnTime: number;
+  scrapValue?: number;
 };
 
 export type FloatingText = {
@@ -341,6 +433,9 @@ type EnemyBase = Entity & {
   freezeTtl: number;
   shoveVelocity: Vec2;
   shoveTimer: number;
+  slowMultiplier: number;
+  slowTimer: number;
+  frostFlashTtl: number;
 };
 
 export type Chaser = EnemyBase & { species: "chaser" };
@@ -348,13 +443,73 @@ export type Shooter = EnemyBase & {
   species: "shooter";
   fireCooldown: number;
 };
+export type BruteSlamPhase = "ready" | "windup";
+export type Brute = EnemyBase & {
+  species: "brute";
+  slamCooldown: number;
+  slamPhase: BruteSlamPhase;
+  slamWindupTimer: number;
+};
+export type Bomber = EnemyBase & {
+  species: "bomber";
+  armed: boolean;
+  armedTimer: number;
+  detonated: boolean;
+  pulsePhase: number;
+};
+export type Shielded = EnemyBase & {
+  species: "shielded";
+  shieldHp: number;
+  shieldHpMax: number;
+  shieldBreakTtl: number;
+};
+export type CasterPhase = "approach" | "channeling" | "cooldown";
+export type Caster = EnemyBase & {
+  species: "caster";
+  castPhase: CasterPhase;
+  castPhaseTimer: number;
+  castTargetX: number;
+  castTargetY: number;
+  attackFlashTtl: number;
+};
 
-export type Enemy = Chaser | Shooter;
+export type BossBruteLord = EnemyBase & {
+  species: "boss_brute_lord";
+  maxHp: number;
+  windowIndex: number;
+  slamCooldown: number;
+  slamPhase: BruteSlamPhase;
+  slamWindupTimer: number;
+  baseSpeed: number;
+  baseDamage: number;
+  hasRoared: boolean;
+  enraged: boolean;
+};
+
+export type Enemy =
+  | Chaser
+  | Shooter
+  | Brute
+  | Bomber
+  | Shielded
+  | Caster
+  | BossBruteLord;
+
+export type Explosion = {
+  pos: Vec2;
+  radius: number;
+  ttl: number;
+  ttlMax: number;
+  innerColor: string;
+  outerColor: string;
+  ringWidth: number;
+};
 
 export type EnemyProjectile = Entity & {
   kind: "enemyProjectile";
   damage: number;
   ttl: number;
+  source: string;
 };
 
 export type Projectile = Entity & {
@@ -364,6 +519,16 @@ export type Projectile = Entity & {
   pierceRemaining: number;
   hitIds: number[];
   homingStrength: number;
+  color?: string;
+};
+
+export type Drone = Entity & {
+  kind: "drone";
+  targetOffset: Vec2;
+  fireCooldown: number;
+  bobPhase: number;
+  lastFireAngle: number;
+  trailHistory: { x: number; y: number; ttl: number; ttlMax: number }[];
 };
 
 export type Gem = Entity & {
@@ -375,4 +540,12 @@ export type Gem = Entity & {
 export type Camera = {
   pos: Vec2;
   prevPos: Vec2;
+};
+
+export type BestMoment = { dps: number; time: number; dealt: number };
+export type WorstMoment = { damage: number; time: number; dominantSource: string };
+
+export type DamageTakenSample = {
+  total: number;
+  bySource: { [source: string]: number };
 };

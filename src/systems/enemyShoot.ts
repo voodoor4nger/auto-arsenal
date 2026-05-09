@@ -50,5 +50,6 @@ function makeShot(
     alive: true,
     damage: SHOOTER_PROJ_DAMAGE,
     ttl: SHOOTER_PROJ_LIFETIME,
+    source: "shooter",
   };
 }

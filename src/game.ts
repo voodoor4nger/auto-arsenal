@@ -1,9 +1,15 @@
 import type {
+  BestMoment,
   Boomerang,
   Camera,
   ClusterBomb,
+  DamageTakenSample,
+  DashAfterimage,
+  DashFlash,
+  Drone,
   Enemy,
   EnemyProjectile,
+  Explosion,
   ExtractionZone,
   FloatingText,
   Gem,
@@ -17,7 +23,10 @@ import type {
   Pickup,
   Player,
   Projectile,
+  RicochetProjectile,
+  RicochetSpark,
   Rocket,
+  WorstMoment,
 } from "./types";
 import {
   BG_COLOR,
@@ -30,13 +39,14 @@ import {
   END_WON_COLOR,
   ENEMY_COLOR,
   GAME_TITLE,
-  GEM_COLOR,
   GRID_COLOR,
   GRID_SIZE,
   GLOBAL_DAMAGE_MULT_DEFAULT,
+  GEM_COLOR,
   HUD_COLOR,
   HUD_FONT,
   LEVEL_XP_START,
+  LEVELUP_OFFER_COUNT,
   MODAL_BG,
   MODAL_CARD_BG,
   MODAL_CARD_BG_HOVER,
@@ -53,6 +63,16 @@ import {
   PICKUP_VIZ_DURATION,
   PICKUP_RENDER_SIZE,
   PICKUP_BOB_AMPLITUDE,
+  SCRAP_BAG_VALUE_MIN,
+  SCRAP_BAG_TIER_MEDIUM_THRESHOLD,
+  SCRAP_BAG_TIER_LARGE_THRESHOLD,
+  SCRAP_BAG_SCALE_MEDIUM,
+  SCRAP_BAG_SCALE_LARGE,
+  SCRAP_BAG_LARGE_BAG_COLOR,
+  SCRAP_BAG_LARGE_ACCENT_COLOR,
+  SCRAP_BAG_MEDIUM_ACCENT_COLOR,
+  SCRAP_BAG_SPARKLE_PERIOD,
+  SCRAP_BAG_SPARKLE_COLOR,
   PICKUP_BOB_PERIOD,
   PICKUP_GLOW_PERIOD,
   PICKUP_GLOW_MIN_ALPHA,
@@ -86,6 +106,62 @@ import {
   SHOOTER_COLOR,
   SHOOTER_PROJ_COLOR,
   SCALING,
+  BOSS_COLOR,
+  BOSS_OUTLINE,
+  BOSS_PLATING_COLOR,
+  BOSS_ENRAGED_COLOR,
+  BOSS_ENRAGED_OUTLINE,
+  BOSS_ENRAGED_PLATING_COLOR,
+  BOSS_HP_BAR_BG_COLOR,
+  BOSS_HP_BAR_BORDER,
+  BOSS_HP_BAR_FULL,
+  BOSS_HP_BAR_HALF,
+  BOSS_HP_BAR_HEIGHT,
+  BOSS_HP_BAR_LABEL_FONT,
+  BOSS_HP_BAR_LOW,
+  BOSS_HP_BAR_WIDTH_FRAC,
+  BOSS_SLAM_RADIUS,
+  BOSS_SLAM_TELEGRAPH_FILL,
+  BOSS_SLAM_TELEGRAPH_RING,
+  BOSS_SLAM_WINDUP,
+  TREASURE_CHEST_BODY_COLOR,
+  TREASURE_CHEST_GLOW_COLOR,
+  TREASURE_CHEST_OUTLINE_COLOR,
+  TREASURE_CHEST_TRIM_COLOR,
+  BRUTE_COLOR,
+  BRUTE_OUTLINE,
+  BRUTE_PLATING_COLOR,
+  BRUTE_SLAM_RADIUS,
+  BRUTE_SLAM_TELEGRAPH_FILL,
+  BRUTE_SLAM_TELEGRAPH_RING,
+  BRUTE_SLAM_WINDUP,
+  BOMBER_COLOR,
+  BOMBER_HIGHLIGHT_COLOR,
+  BOMBER_ARMED_DIM,
+  BOMBER_PULSE_HZ,
+  BOMBER_VIGNETTE_DURATION,
+  BOMBER_VIGNETTE_INNER,
+  BOMBER_VIGNETTE_OUTER,
+  SHIELDED_COLOR,
+  SHIELDED_OUTLINE,
+  SHIELDED_SHIELD_FULL_COLOR,
+  SHIELDED_SHIELD_LOW_COLOR,
+  SHIELDED_SHARD_COLOR,
+  SHIELDED_SHARD_COUNT,
+  SHIELDED_SHARD_LENGTH,
+  SHIELDED_SHIELD_OFFSET,
+  SHIELDED_SHIELD_WIDTH,
+  SHIELDED_BREAK_TTL,
+  CASTER_COLOR,
+  CASTER_OUTLINE,
+  CASTER_CORE_COLOR,
+  CASTER_GLOW_COLOR,
+  CASTER_AOE_FILL_COLOR,
+  CASTER_AOE_RADIUS,
+  CASTER_AOE_RING_COLOR,
+  CASTER_AOE_STRIKE_COLOR,
+  CASTER_CHANNEL_TIME,
+  CASTER_FLASH_DURATION,
   TITLE_FONT,
   WEAPONS,
   SCRAP_PER_SECOND,
@@ -132,6 +208,15 @@ import {
   CRIT_FLASH_COLOR,
   CRIT_FLASH_RADIUS_MULT,
   CRIT_MULT_DEFAULT,
+  DASH_BASE_COOLDOWN,
+  DASH_HUD_DIMMED_COLOR,
+  DASH_HUD_ICON_RADIUS,
+  DASH_HUD_LABEL_COLOR,
+  DASH_HUD_PROGRESS_COLOR,
+  DASH_HUD_READY_COLOR,
+  DASH_FLASH_COLOR,
+  DASH_IFRAME_DURATION,
+  DASH_OUTLINE_COLOR,
   WIPE_SAVE_COLOR,
   WIPE_SAVE_FONT,
   WORKSHOP_BUY_BG,
@@ -155,6 +240,12 @@ import {
   STARTER_CARD_H,
   STARTER_CARD_GAP,
   STARTER_COLS,
+  STARTER_HEADER_TOP_PADDING,
+  STARTER_HEADER_BOTTOM_MARGIN,
+  STARTER_HEADER_HEIGHT,
+  STARTER_BUTTONS_BOTTOM_MARGIN,
+  DAMAGE_SOURCE_COLORS,
+  DAMAGE_SOURCE_LABELS,
   STARTER_SELECT_BORDER,
   STARTER_LOCKED_BG,
   STARTER_LOCKED_TEXT,
@@ -175,7 +266,7 @@ import { updateEnemyAI } from "./systems/enemyAI";
 import { updateCombat } from "./systems/combat";
 import { updateWeapon } from "./systems/weapon";
 import { updateProjectiles } from "./systems/projectile";
-import { updateDeathDrops } from "./systems/deathDrops";
+import { gemValueForTime, updateDeathDrops } from "./systems/deathDrops";
 import { updateGems } from "./systems/gem";
 import { updateEnemyShoot } from "./systems/enemyShoot";
 import { updateEnemyProjectiles } from "./systems/enemyProjectile";
@@ -191,14 +282,21 @@ import { updateMachineGun } from "./systems/mg";
 import { updateRockets } from "./systems/rocket";
 import { updateClusterBombs } from "./systems/clusterBomb";
 import { updateGravityWells, updateRepulsor } from "./systems/repulsor";
+import { updateBombers } from "./systems/bomber";
 import { updateSword } from "./systems/sword";
+import { updateRicochet } from "./systems/ricochet";
+import { updateDrones } from "./systems/drone";
+import { updateFrostNova } from "./systems/frostNova";
+import { updateStats, liveDps } from "./systems/stats";
 import {
+  despawnActiveBoss,
   getExtractMultiplier,
   nextWindowOpenTime,
   updateExtraction,
 } from "./systems/extract";
 import {
   findAuraWeapon,
+  findFrostNovaWeapon,
   findLaserWeapon,
   findMachineGunWeapon,
   findOrbWeapon,
@@ -233,6 +331,7 @@ import {
   maybeStartLevelUp,
 } from "./systems/levelup";
 import type { Mod } from "./mods";
+import { PASSIVE_MODS, rollOffer } from "./mods";
 
 export type GameState = {
   phase: Phase;
@@ -253,6 +352,12 @@ export type GameState = {
   plasmaFields: PlasmaField[];
   pickups: Pickup[];
   gravityWells: GravityWell[];
+  explosions: Explosion[];
+  ricochetProjectiles: RicochetProjectile[];
+  ricochetSparks: RicochetSpark[];
+  drones: Drone[];
+  dashAfterimages: DashAfterimage[];
+  dashFlashes: DashFlash[];
   floatingTexts: FloatingText[];
   bombFlashTtl: number;
   bombShockwaveTtl: number;
@@ -262,6 +367,7 @@ export type GameState = {
   heartVignetteTtl: number;
   clockTintTtl: number;
   clockVignetteTtl: number;
+  bomberVignetteTtl: number;
   camera: Camera;
   input: InputState;
   viewport: { width: number; height: number };
@@ -269,6 +375,22 @@ export type GameState = {
   pendingLevelUps: number;
   offer: Mod[] | null;
   killCount: number;
+  brutesKilled: number;
+  totalDamageDealt: number;
+  totalDamageTaken: number;
+  damageBySource: Record<string, number>;
+  killsByType: Record<string, number>;
+  frameDamageDealt: number;
+  frameDamageTaken: Record<string, number>;
+  dpsWindow: number[];
+  damageDealtBuckets: number[];
+  damageTakenBuckets: DamageTakenSample[];
+  bestMoment: BestMoment;
+  worstMoment: WorstMoment;
+  causeOfDeath: string | null;
+  modStacks: Record<string, number>;
+  pendingChestRolls: number;
+  pendingModalSource: "levelup" | "chest" | "first-pick" | null;
   pickupVizRemaining: number;
   glassCannonTaken: boolean;
   save: SaveData;
@@ -301,6 +423,12 @@ export function initGame(viewport: { width: number; height: number }): GameState
     plasmaFields: [],
     pickups: [],
     gravityWells: [],
+    explosions: [],
+    ricochetProjectiles: [],
+    ricochetSparks: [],
+    drones: [],
+    dashAfterimages: [],
+    dashFlashes: [],
     floatingTexts: [],
     bombFlashTtl: 0,
     bombShockwaveTtl: 0,
@@ -310,6 +438,7 @@ export function initGame(viewport: { width: number; height: number }): GameState
     heartVignetteTtl: 0,
     clockTintTtl: 0,
     clockVignetteTtl: 0,
+    bomberVignetteTtl: 0,
     camera: { pos: { x: 0, y: 0 }, prevPos: { x: 0, y: 0 } },
     input: createInput(),
     viewport,
@@ -317,6 +446,22 @@ export function initGame(viewport: { width: number; height: number }): GameState
     pendingLevelUps: 0,
     offer: null,
     killCount: 0,
+    brutesKilled: 0,
+    totalDamageDealt: 0,
+    totalDamageTaken: 0,
+    damageBySource: {},
+    killsByType: {},
+    frameDamageDealt: 0,
+    frameDamageTaken: {},
+    dpsWindow: [],
+    damageDealtBuckets: [],
+    damageTakenBuckets: [],
+    bestMoment: { dps: 0, time: 0, dealt: 0 },
+    worstMoment: { damage: 0, time: 0, dominantSource: "" },
+    causeOfDeath: null,
+    modStacks: {},
+    pendingChestRolls: 0,
+    pendingModalSource: null,
     pickupVizRemaining: 0,
     glassCannonTaken: false,
     save: loadSave(),
@@ -359,6 +504,14 @@ function makeInitialPlayer(): Player {
     berserkerStacks: 0,
     thornsStacks: 0,
     ironSkinStacks: 0,
+    dashCooldown: 0,
+    dashCooldownMax: DASH_BASE_COOLDOWN,
+    dashIframeTimer: 0,
+    dashActiveTimer: 0,
+    dashStartPos: { x: 0, y: 0 },
+    dashEndPos: { x: 0, y: 0 },
+    dashAfterimageTimer: 0,
+    lastMovementDirection: { x: 0, y: 0 },
   };
 }
 
@@ -380,6 +533,12 @@ function freshRun(state: GameState): void {
   state.plasmaFields = [];
   state.pickups = [];
   state.gravityWells = [];
+  state.explosions = [];
+  state.ricochetProjectiles = [];
+  state.ricochetSparks = [];
+  state.drones = [];
+  state.dashAfterimages = [];
+  state.dashFlashes = [];
   state.floatingTexts = [];
   state.bombFlashTtl = 0;
   state.bombShockwaveTtl = 0;
@@ -389,11 +548,28 @@ function freshRun(state: GameState): void {
   state.heartVignetteTtl = 0;
   state.clockTintTtl = 0;
   state.clockVignetteTtl = 0;
+  state.bomberVignetteTtl = 0;
   state.camera = { pos: { x: 0, y: 0 }, prevPos: { x: 0, y: 0 } };
   state.spawnTimer = SCALING.spawnInterval.startSeconds;
   state.pendingLevelUps = 0;
   state.offer = null;
   state.killCount = 0;
+  state.brutesKilled = 0;
+  state.totalDamageDealt = 0;
+  state.totalDamageTaken = 0;
+  state.damageBySource = {};
+  state.killsByType = {};
+  state.frameDamageDealt = 0;
+  state.frameDamageTaken = {};
+  state.dpsWindow = [];
+  state.damageDealtBuckets = [];
+  state.damageTakenBuckets = [];
+  state.bestMoment = { dps: 0, time: 0, dealt: 0 };
+  state.worstMoment = { damage: 0, time: 0, dominantSource: "" };
+  state.causeOfDeath = null;
+  state.modStacks = {};
+  state.pendingChestRolls = 0;
+  state.pendingModalSource = null;
   state.pickupVizRemaining = 0;
   state.glassCannonTaken = false;
   state.extraction = null;
@@ -423,7 +599,34 @@ function startNewRun(state: GameState): void {
   state.scrapLostLastRun = 0;
   state.extractMultiplierLastRun = 0;
   state.unlocksThisRun = [];
-  state.phase = "playing";
+  state.offer = rollOffer(state, LEVELUP_OFFER_COUNT);
+  state.pendingModalSource = "first-pick";
+  state.phase = "first-pick";
+}
+
+function handleFirstPickClick(state: GameState): void {
+  if (!state.offer) return;
+  if (!state.input.mouseClicked) return;
+  const m = state.input.mouse;
+
+  const reroll = getRerollButtonRect(state);
+  if (reroll && pointInRect(m, reroll)) {
+    state.player.rerollTokens -= 1;
+    state.offer = rollOffer(state, LEVELUP_OFFER_COUNT);
+    return;
+  }
+
+  const rects = getCardRects(state);
+  for (let i = 0; i < rects.length; i++) {
+    if (!pointInRect(m, rects[i])) continue;
+    const picked = state.offer[i];
+    picked.apply(state);
+    state.modStacks[picked.id] = (state.modStacks[picked.id] ?? 0) + 1;
+    state.offer = null;
+    state.pendingModalSource = null;
+    state.phase = "playing";
+    return;
+  }
 }
 
 function extractRun(state: GameState): void {
@@ -439,6 +642,7 @@ function extractRun(state: GameState): void {
   state.extractMultiplierLastRun = mult;
   state.unlocksThisRun = checkAchievements(state);
   state.extraction = null;
+  despawnActiveBoss(state);
   writeSave(state.save);
   state.phase = "extracted";
 }
@@ -464,6 +668,16 @@ export function updateGame(state: GameState, dt: number): void {
     state.phase = state.phase === "playing" ? "paused" : "playing";
   }
 
+  if (state.input.justPressed.has("Tab")) {
+    if (state.phase === "playing") state.phase = "paused-summary";
+    else if (state.phase === "paused-summary") state.phase = "playing";
+  } else if (
+    state.input.justPressed.has("Escape") &&
+    state.phase === "paused-summary"
+  ) {
+    state.phase = "playing";
+  }
+
   switch (state.phase) {
     case "title":
       handleTitleClick(state);
@@ -475,6 +689,10 @@ export function updateGame(state: GameState, dt: number): void {
       return;
     case "weapon-select":
       handleWeaponSelectClick(state);
+      clearJustPressed(state.input);
+      return;
+    case "first-pick":
+      handleFirstPickClick(state);
       clearJustPressed(state.input);
       return;
     case "extracted":
@@ -500,6 +718,9 @@ export function updateGame(state: GameState, dt: number): void {
       return;
     case "paused":
       handlePauseClick(state);
+      clearJustPressed(state.input);
+      return;
+    case "paused-summary":
       clearJustPressed(state.input);
       return;
   }
@@ -557,6 +778,9 @@ function tickPlaying(state: GameState, dt: number): void {
   updateRepulsor(state, dt);
   updateGravityWells(state, dt);
   updateSword(state, dt);
+  updateRicochet(state, dt);
+  updateDrones(state, dt);
+  updateFrostNova(state, dt);
 
   const extracting = updateExtraction(state, dt);
   if (extracting) {
@@ -565,10 +789,12 @@ function tickPlaying(state: GameState, dt: number): void {
   }
 
   updateCombat(state, dt);
+  updateBombers(state, dt);
   updateRegen(state, dt);
   updateDeathDrops(state);
   updateGems(state, dt);
   updateCamera(state);
+  updateStats(state);
   pruneDead(state);
 
   if (state.player.hp <= 0) {
@@ -771,16 +997,22 @@ function handleTitleClick(state: GameState): void {
 }
 
 function getStarterCardRect(state: GameState, index: number): Rect {
-  const totalW = STARTER_COLS * STARTER_CARD_W + (STARTER_COLS - 1) * STARTER_CARD_GAP;
-  const rows = Math.ceil(STARTER_WEAPON_IDS.length / STARTER_COLS);
-  const totalH = rows * STARTER_CARD_H + (rows - 1) * STARTER_CARD_GAP;
-  const startX = (state.viewport.width - totalW) / 2;
-  const startY = (state.viewport.height - totalH) / 2 - 40;
-  const col = index % STARTER_COLS;
-  const row = Math.floor(index / STARTER_COLS);
+  const total = STARTER_WEAPON_IDS.length;
+  const cols = STARTER_COLS;
+  const totalRows = Math.ceil(total / cols);
+  const row = Math.floor(index / cols);
+  const col = index % cols;
+  const isLastRow = row === totalRows - 1;
+  const lastRowCount = total - (totalRows - 1) * cols;
+  const colsThisRow = isLastRow ? lastRowCount : cols;
+  const rowWidth =
+    colsThisRow * STARTER_CARD_W + (colsThisRow - 1) * STARTER_CARD_GAP;
+  const startX = (state.viewport.width - rowWidth) / 2;
+  const gridTop =
+    STARTER_HEADER_TOP_PADDING + STARTER_HEADER_HEIGHT + STARTER_HEADER_BOTTOM_MARGIN;
   return {
     x: startX + col * (STARTER_CARD_W + STARTER_CARD_GAP),
-    y: startY + row * (STARTER_CARD_H + STARTER_CARD_GAP),
+    y: gridTop + row * (STARTER_CARD_H + STARTER_CARD_GAP),
     w: STARTER_CARD_W,
     h: STARTER_CARD_H,
   };
@@ -791,7 +1023,7 @@ function getWeaponSelectStartRect(state: GameState): Rect {
   const startX = (state.viewport.width - totalW) / 2;
   return {
     x: startX + BUTTON_W + 12,
-    y: state.viewport.height - BUTTON_H - 24,
+    y: state.viewport.height - BUTTON_H - STARTER_BUTTONS_BOTTOM_MARGIN,
     w: BUTTON_W,
     h: BUTTON_H,
   };
@@ -802,7 +1034,7 @@ function getWeaponSelectBackRect(state: GameState): Rect {
   const startX = (state.viewport.width - totalW) / 2;
   return {
     x: startX,
-    y: state.viewport.height - BUTTON_H - 24,
+    y: state.viewport.height - BUTTON_H - STARTER_BUTTONS_BOTTOM_MARGIN,
     w: BUTTON_W,
     h: BUTTON_H,
   };
@@ -890,6 +1122,9 @@ function pruneDead(state: GameState): void {
   if (state.gravityWells.some((w) => !w.alive)) {
     state.gravityWells = state.gravityWells.filter((w) => w.alive);
   }
+  if (state.ricochetProjectiles.some((p) => !p.alive)) {
+    state.ricochetProjectiles = state.ricochetProjectiles.filter((p) => p.alive);
+  }
 }
 
 export function renderGame(
@@ -923,6 +1158,11 @@ export function renderGame(
     return;
   }
 
+  if (state.phase === "first-pick") {
+    drawFirstPick(ctx, state);
+    return;
+  }
+
   drawPickupViz(ctx, state, alpha, camX, camY);
   drawExtractionZone(ctx, state, camX, camY);
   drawAura(ctx, state, alpha, camX, camY);
@@ -943,7 +1183,14 @@ export function renderGame(
   drawRepulsorPulse(ctx, state, camX, camY);
   drawGravityWells(ctx, state, alpha, camX, camY);
   drawSwordSwing(ctx, state, camX, camY);
+  drawDrones(ctx, state, alpha, camX, camY);
+  drawRicochetProjectiles(ctx, state, alpha, camX, camY);
+  drawFrostPulse(ctx, state, alpha, camX, camY);
+  drawExplosions(ctx, state, camX, camY);
+  drawDashAfterimages(ctx, state, camX, camY);
+  drawDashFlashes(ctx, state, camX, camY);
   drawPlayer(ctx, state, alpha, camX, camY);
+  drawDashIframeOutline(ctx, state, alpha, camX, camY);
   drawMinigunIndicator(ctx, state, camX, camY);
   drawBombShockwave(ctx, state, camX, camY);
   drawMagnetPulse(ctx, state, camX, camY);
@@ -951,6 +1198,7 @@ export function renderGame(
   drawClockTint(ctx, state);
   drawClockVignette(ctx, state);
   drawHeartVignette(ctx, state);
+  drawBomberVignette(ctx, state);
   drawBombFlash(ctx, state);
   drawBerserkerVignette(ctx, state);
   drawExtractionArrow(ctx, state, camX, camY);
@@ -962,6 +1210,7 @@ export function renderGame(
 
   if (state.phase === "levelup") drawLevelUpModal(ctx, state);
   else if (state.phase === "paused") drawPauseOverlay(ctx, state);
+  else if (state.phase === "paused-summary") drawBuildSummary(ctx, state);
   else if (state.phase === "extracted") drawEndScreen(ctx, state, "extracted");
   else if (state.phase === "lost") drawEndScreen(ctx, state, "lost");
 }
@@ -1127,7 +1376,7 @@ function drawPickups(
     const sx = halfW + (pu.pos.x - camX);
     const sy = halfH + (pu.pos.y - camY) + bob;
     drawPickupGlow(ctx, sx, sy, now);
-    drawPickupIcon(ctx, pu.pickupType, sx, sy);
+    drawPickupIcon(ctx, pu, sx, sy, now);
   }
 }
 
@@ -1149,11 +1398,18 @@ function drawPickupGlow(
 
 function drawPickupIcon(
   ctx: CanvasRenderingContext2D,
-  type: import("./types").PickupType,
+  pu: import("./types").Pickup,
   sx: number,
-  sy: number
+  sy: number,
+  now: number
 ): void {
-  const half = PICKUP_RENDER_SIZE / 2;
+  const type = pu.pickupType;
+  let half = PICKUP_RENDER_SIZE / 2;
+  if (type === "scrap_bag") {
+    const v = pu.scrapValue ?? SCRAP_BAG_VALUE_MIN;
+    if (v >= SCRAP_BAG_TIER_LARGE_THRESHOLD) half *= SCRAP_BAG_SCALE_LARGE;
+    else if (v >= SCRAP_BAG_TIER_MEDIUM_THRESHOLD) half *= SCRAP_BAG_SCALE_MEDIUM;
+  }
   switch (type) {
     case "bomb":
       ctx.fillStyle = "#3a3a3a";
@@ -1195,18 +1451,29 @@ function drawPickupIcon(
       ctx.bezierCurveTo(hx + w, hy, hx, hy, hx, hy + hh * 0.4);
       ctx.fill();
       return;
-    case "scrap_bag":
-      ctx.fillStyle = "#7a4a2a";
+    case "scrap_bag": {
+      const v = pu.scrapValue ?? SCRAP_BAG_VALUE_MIN;
+      const isLarge = v >= SCRAP_BAG_TIER_LARGE_THRESHOLD;
+      const isMedium = !isLarge && v >= SCRAP_BAG_TIER_MEDIUM_THRESHOLD;
+      const bagColor = isLarge ? SCRAP_BAG_LARGE_BAG_COLOR : "#7a4a2a";
+      const accentColor = isLarge
+        ? SCRAP_BAG_LARGE_ACCENT_COLOR
+        : isMedium
+        ? SCRAP_BAG_MEDIUM_ACCENT_COLOR
+        : "#f5d76e";
+      ctx.fillStyle = bagColor;
       ctx.fillRect(sx - half * 0.7, sy - half * 0.5, half * 1.4, half * 1.2);
       ctx.fillStyle = "#3a2010";
       ctx.fillRect(sx - half * 0.5, sy - half * 0.7, half * 1.0, half * 0.3);
-      ctx.fillStyle = "#f5d76e";
+      ctx.fillStyle = accentColor;
       ctx.beginPath();
       ctx.arc(sx - half * 0.25, sy + half * 0.05, 2.5, 0, Math.PI * 2);
       ctx.arc(sx + half * 0.2, sy + half * 0.25, 2.5, 0, Math.PI * 2);
       ctx.arc(sx + half * 0.05, sy - half * 0.1, 2, 0, Math.PI * 2);
       ctx.fill();
+      if (isLarge) drawScrapBagSparkles(ctx, pu, sx, sy, half, now);
       return;
+    }
     case "clock":
       ctx.fillStyle = "#f5f5f5";
       ctx.beginPath();
@@ -1225,7 +1492,362 @@ function drawPickupIcon(
       ctx.lineTo(sx + half * 0.4, sy);
       ctx.stroke();
       return;
+    case "treasure_chest": {
+      // Pulsing gold glow
+      const pulse = 0.5 + 0.5 * Math.sin(now * Math.PI * 2 * 1.4);
+      const glowR = half * (1.6 + pulse * 0.4);
+      const grad = ctx.createRadialGradient(sx, sy, half * 0.4, sx, sy, glowR);
+      grad.addColorStop(0, TREASURE_CHEST_GLOW_COLOR);
+      grad.addColorStop(1, "rgba(245, 215, 110, 0)");
+      ctx.fillStyle = grad;
+      ctx.fillRect(sx - glowR, sy - glowR, glowR * 2, glowR * 2);
+
+      // Chest body
+      const bw = half * 1.5;
+      const bh = half * 1.1;
+      ctx.fillStyle = TREASURE_CHEST_OUTLINE_COLOR;
+      ctx.fillRect(sx - bw / 2 - 2, sy - bh / 2 - 2, bw + 4, bh + 4);
+      ctx.fillStyle = TREASURE_CHEST_BODY_COLOR;
+      ctx.fillRect(sx - bw / 2, sy - bh / 2, bw, bh);
+
+      // Lid line
+      ctx.strokeStyle = TREASURE_CHEST_OUTLINE_COLOR;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(sx - bw / 2, sy - bh * 0.1);
+      ctx.lineTo(sx + bw / 2, sy - bh * 0.1);
+      ctx.stroke();
+
+      // Gold trim straps
+      ctx.fillStyle = TREASURE_CHEST_TRIM_COLOR;
+      ctx.fillRect(sx - bw / 2, sy - bh / 2, bw, 3);
+      ctx.fillRect(sx - bw / 2, sy + bh / 2 - 3, bw, 3);
+      // Lock
+      ctx.fillRect(sx - 3, sy - bh * 0.18, 6, 8);
+      return;
+    }
   }
+}
+
+function drawFrostPulse(
+  ctx: CanvasRenderingContext2D,
+  state: GameState,
+  alpha: number,
+  camX: number,
+  camY: number
+): void {
+  const w = findFrostNovaWeapon(state);
+  if (!w || w.pulseVizTtl <= 0) return;
+  const { width, height } = state.viewport;
+  const p = state.player;
+  const px = p.prevPos.x + (p.pos.x - p.prevPos.x) * alpha;
+  const py = p.prevPos.y + (p.pos.y - p.prevPos.y) * alpha;
+  const sx = width / 2 + (px - camX);
+  const sy = height / 2 + (py - camY);
+
+  const total = WEAPONS.FROST_NOVA.PULSE_VIZ_DURATION;
+  const t = 1 - Math.max(0, w.pulseVizTtl / total);
+  const r = w.pulseVizRadius * t;
+  const fade = 1 - t;
+
+  const prev = ctx.globalAlpha;
+  ctx.globalAlpha = fade * 0.85;
+  ctx.fillStyle = WEAPONS.FROST_NOVA.PLAYER_FLASH_COLOR;
+  ctx.beginPath();
+  ctx.arc(sx, sy, p.radius * 1.6 * (0.3 + fade * 0.7), 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.globalAlpha = fade;
+  ctx.lineWidth = w.evolved ? WEAPONS.FROST_NOVA.RING_WIDTH_EVOLVED : WEAPONS.FROST_NOVA.RING_WIDTH;
+  ctx.strokeStyle = WEAPONS.FROST_NOVA.RING_OUTER_COLOR;
+  ctx.beginPath();
+  ctx.arc(sx, sy, r, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.strokeStyle = WEAPONS.FROST_NOVA.RING_INNER_COLOR;
+  ctx.lineWidth = Math.max(1, ctx.lineWidth - 2);
+  ctx.beginPath();
+  ctx.arc(sx, sy, r * 0.95, 0, Math.PI * 2);
+  ctx.stroke();
+
+  if (w.evolved) {
+    ctx.fillStyle = WEAPONS.FROST_NOVA.SNOWFLAKE_COLOR;
+    const N = WEAPONS.FROST_NOVA.SNOWFLAKE_COUNT;
+    for (let i = 0; i < N; i++) {
+      const a = (i * 137.5 + state.time * 60) % 360;
+      const ang = (a * Math.PI) / 180;
+      const dist = (((i * 53 + Math.floor(state.time * 4)) % 100) / 100) * w.pulseVizRadius * fade;
+      ctx.globalAlpha = fade * 0.6;
+      const fx = sx + Math.cos(ang) * dist;
+      const fy = sy + Math.sin(ang) * dist;
+      ctx.beginPath();
+      ctx.arc(fx, fy, 1.6, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  ctx.globalAlpha = prev;
+}
+
+function drawDrones(
+  ctx: CanvasRenderingContext2D,
+  state: GameState,
+  alpha: number,
+  camX: number,
+  camY: number
+): void {
+  if (state.drones.length === 0) return;
+  const { width, height } = state.viewport;
+  const halfW = width / 2;
+  const halfH = height / 2;
+  const prev = ctx.globalAlpha;
+
+  // Trails first (only when evolved — system clears trail otherwise)
+  for (const d of state.drones) {
+    if (d.trailHistory.length < 2) continue;
+    ctx.strokeStyle = WEAPONS.DRONE.TRAIL_COLOR;
+    ctx.lineWidth = 3;
+    ctx.lineCap = "round";
+    for (let i = 1; i < d.trailHistory.length; i++) {
+      const a = d.trailHistory[i - 1];
+      const b = d.trailHistory[i];
+      const fade = Math.max(0, b.ttl / b.ttlMax);
+      ctx.globalAlpha = fade * 0.55;
+      ctx.beginPath();
+      ctx.moveTo(halfW + (a.x - camX), halfH + (a.y - camY));
+      ctx.lineTo(halfW + (b.x - camX), halfH + (b.y - camY));
+      ctx.stroke();
+    }
+  }
+
+  ctx.globalAlpha = 1;
+  for (const d of state.drones) {
+    const dx = d.prevPos.x + (d.pos.x - d.prevPos.x) * alpha;
+    const dy = d.prevPos.y + (d.pos.y - d.prevPos.y) * alpha;
+    const bob =
+      Math.sin((d.bobPhase / WEAPONS.DRONE.BOB_PERIOD) * Math.PI * 2) *
+      WEAPONS.DRONE.BOB_AMPLITUDE;
+    const sx = halfW + (dx - camX);
+    const sy = halfH + (dy - camY) + bob;
+    const r = d.radius;
+
+    // Glow
+    const grad = ctx.createRadialGradient(sx, sy, r * 0.3, sx, sy, r * 1.8);
+    grad.addColorStop(0, WEAPONS.DRONE.BODY_GLOW_COLOR);
+    grad.addColorStop(1, "rgba(90, 240, 255, 0)");
+    ctx.fillStyle = grad;
+    ctx.fillRect(sx - r * 2, sy - r * 2, r * 4, r * 4);
+
+    // Engine trail (small line behind)
+    ctx.strokeStyle = WEAPONS.DRONE.BODY_ACCENT_COLOR;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    const tailX = sx - Math.cos(d.lastFireAngle) * (r + 4);
+    const tailY = sy - Math.sin(d.lastFireAngle) * (r + 4);
+    ctx.moveTo(sx - Math.cos(d.lastFireAngle) * (r * 0.4), sy - Math.sin(d.lastFireAngle) * (r * 0.4));
+    ctx.lineTo(tailX, tailY);
+    ctx.stroke();
+
+    // Triangle body pointing along lastFireAngle
+    ctx.save();
+    ctx.translate(sx, sy);
+    ctx.rotate(d.lastFireAngle);
+    ctx.fillStyle = WEAPONS.DRONE.BODY_OUTLINE_COLOR;
+    ctx.beginPath();
+    ctx.moveTo(r + 1, 0);
+    ctx.lineTo(-r - 1, -r * 0.75 - 1);
+    ctx.lineTo(-r - 1, r * 0.75 + 1);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = WEAPONS.DRONE.BODY_FILL_COLOR;
+    ctx.beginPath();
+    ctx.moveTo(r, 0);
+    ctx.lineTo(-r, -r * 0.7);
+    ctx.lineTo(-r, r * 0.7);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+  }
+  ctx.globalAlpha = prev;
+}
+
+function drawRicochetProjectiles(
+  ctx: CanvasRenderingContext2D,
+  state: GameState,
+  alpha: number,
+  camX: number,
+  camY: number
+): void {
+  if (state.ricochetProjectiles.length === 0 && state.ricochetSparks.length === 0) return;
+  const { width, height } = state.viewport;
+  const halfW = width / 2;
+  const halfH = height / 2;
+  const prev = ctx.globalAlpha;
+
+  // Trails first
+  for (const p of state.ricochetProjectiles) {
+    if (!p.alive) continue;
+    const trailColor = pickRicochetTrailColor(p);
+    const trailWidth = p.evolved
+      ? EVOLUTIONS.RICOCHET.TRAIL_WIDTH
+      : WEAPONS.RICOCHET.TRAIL_WIDTH;
+    ctx.lineWidth = trailWidth;
+    ctx.strokeStyle = trailColor;
+    ctx.lineCap = "round";
+    for (let i = 1; i < p.trail.length; i++) {
+      const a = p.trail[i - 1];
+      const b = p.trail[i];
+      const fade = Math.max(0, b.ttl / b.ttlMax);
+      ctx.globalAlpha = fade * 0.7;
+      ctx.beginPath();
+      ctx.moveTo(halfW + (a.x - camX), halfH + (a.y - camY));
+      ctx.lineTo(halfW + (b.x - camX), halfH + (b.y - camY));
+      ctx.stroke();
+    }
+  }
+
+  // Projectiles
+  for (const p of state.ricochetProjectiles) {
+    if (!p.alive) continue;
+    const px = p.prevPos.x + (p.pos.x - p.prevPos.x) * alpha;
+    const py = p.prevPos.y + (p.pos.y - p.prevPos.y) * alpha;
+    const sx = halfW + (px - camX);
+    const sy = halfH + (py - camY);
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = WEAPONS.RICOCHET.PROJECTILE_COLOR_PRIMARY;
+    ctx.beginPath();
+    ctx.arc(sx, sy, p.radius, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = WEAPONS.RICOCHET.PROJECTILE_COLOR_SECONDARY;
+    ctx.beginPath();
+    ctx.arc(sx, sy, p.radius * 0.55, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // Sparks on bounce
+  for (const s of state.ricochetSparks) {
+    const t = 1 - Math.max(0, s.ttl / s.ttlMax);
+    const sx = halfW + (s.pos.x - camX);
+    const sy = halfH + (s.pos.y - camY);
+    ctx.globalAlpha = 1 - t;
+    ctx.strokeStyle = WEAPONS.RICOCHET.SPARK_COLOR;
+    ctx.lineWidth = 1.5;
+    const r = 3 + t * 9;
+    for (let i = 0; i < 6; i++) {
+      const a = (i / 6) * Math.PI * 2;
+      ctx.beginPath();
+      ctx.moveTo(sx + Math.cos(a) * 2, sy + Math.sin(a) * 2);
+      ctx.lineTo(sx + Math.cos(a) * r, sy + Math.sin(a) * r);
+      ctx.stroke();
+    }
+  }
+
+  ctx.globalAlpha = prev;
+}
+
+function pickRicochetTrailColor(p: RicochetProjectile): string {
+  if (!p.evolved) return WEAPONS.RICOCHET.PROJECTILE_TRAIL_COLOR;
+  if (p.bounceIndex <= 1) return EVOLUTIONS.RICOCHET.EARLY_COLOR;
+  if (p.bounceIndex <= 3) return EVOLUTIONS.RICOCHET.MID_COLOR;
+  return EVOLUTIONS.RICOCHET.LATE_COLOR;
+}
+
+function drawDashAfterimages(
+  ctx: CanvasRenderingContext2D,
+  state: GameState,
+  camX: number,
+  camY: number
+): void {
+  if (state.dashAfterimages.length === 0) return;
+  const { width, height } = state.viewport;
+  const prev = ctx.globalAlpha;
+  ctx.fillStyle = PLAYER_COLOR;
+  for (const a of state.dashAfterimages) {
+    const fade = Math.max(0, a.ttl / a.ttlMax);
+    ctx.globalAlpha = a.baseAlpha * fade;
+    const sx = Math.round(width / 2 + (a.pos.x - camX) - PLAYER_SIZE / 2);
+    const sy = Math.round(height / 2 + (a.pos.y - camY) - PLAYER_SIZE / 2);
+    ctx.fillRect(sx, sy, PLAYER_SIZE, PLAYER_SIZE);
+  }
+  ctx.globalAlpha = prev;
+}
+
+function drawDashFlashes(
+  ctx: CanvasRenderingContext2D,
+  state: GameState,
+  camX: number,
+  camY: number
+): void {
+  if (state.dashFlashes.length === 0) return;
+  const { width, height } = state.viewport;
+  const prev = ctx.globalAlpha;
+  for (const f of state.dashFlashes) {
+    const t = 1 - Math.max(0, f.ttl / f.ttlMax);
+    const sx = width / 2 + (f.pos.x - camX);
+    const sy = height / 2 + (f.pos.y - camY);
+    const r = PLAYER_SIZE * 0.4 + t * PLAYER_SIZE * 0.9;
+    ctx.globalAlpha = (1 - t) * 0.85;
+    ctx.fillStyle = DASH_FLASH_COLOR;
+    ctx.beginPath();
+    ctx.arc(sx, sy, r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.globalAlpha = prev;
+}
+
+function drawDashIframeOutline(
+  ctx: CanvasRenderingContext2D,
+  state: GameState,
+  alpha: number,
+  camX: number,
+  camY: number
+): void {
+  const p = state.player;
+  if (p.dashIframeTimer <= 0) return;
+  const px = p.prevPos.x + (p.pos.x - p.prevPos.x) * alpha;
+  const py = p.prevPos.y + (p.pos.y - p.prevPos.y) * alpha;
+  const sx = state.viewport.width / 2 + (px - camX);
+  const sy = state.viewport.height / 2 + (py - camY);
+  const t = p.dashIframeTimer / DASH_IFRAME_DURATION;
+  const pulse = Math.sin((1 - t) * Math.PI);
+  const prev = ctx.globalAlpha;
+  ctx.globalAlpha = 0.5 * (0.5 + 0.5 * pulse);
+  ctx.strokeStyle = DASH_OUTLINE_COLOR;
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.arc(sx, sy, p.radius + 4, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.globalAlpha = prev;
+}
+
+function drawScrapBagSparkles(
+  ctx: CanvasRenderingContext2D,
+  pu: import("./types").Pickup,
+  sx: number,
+  sy: number,
+  half: number,
+  now: number
+): void {
+  const elapsed = now - pu.spawnTime;
+  const cycle = Math.floor(elapsed / SCRAP_BAG_SPARKLE_PERIOD);
+  const t = (elapsed % SCRAP_BAG_SPARKLE_PERIOD) / SCRAP_BAG_SPARKLE_PERIOD;
+  const fade = 1 - t;
+  const N = 5;
+  const seedBase = (cycle * 73 + pu.id * 17) % 360;
+  const prev = ctx.globalAlpha;
+  ctx.fillStyle = SCRAP_BAG_SPARKLE_COLOR;
+  for (let i = 0; i < N; i++) {
+    const angle = ((seedBase + i * 67) % 360) * (Math.PI / 180);
+    const distSeed = ((cycle * 31 + i * 41 + pu.id * 7) % 100) / 100;
+    const dist = half * (0.85 + distSeed * 0.45);
+    const driftY = -t * half * 0.6;
+    const px = sx + Math.cos(angle) * dist;
+    const py = sy + Math.sin(angle) * dist + driftY;
+    ctx.globalAlpha = fade * 0.85;
+    ctx.beginPath();
+    ctx.arc(px, py, 1.6, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.globalAlpha = prev;
 }
 
 function drawPauseButton(ctx: CanvasRenderingContext2D, state: GameState): void {
@@ -1277,6 +1899,204 @@ function drawPauseOverlay(ctx: CanvasRenderingContext2D, state: GameState): void
   ctx.fillText("Press P or Esc to resume", width / 2, height / 2 + 8);
 
   drawButton(ctx, getResumeButtonRect(state), "Resume", state.input.mouse, false);
+}
+
+function drawBuildSummary(ctx: CanvasRenderingContext2D, state: GameState): void {
+  const { width, height } = state.viewport;
+
+  // 50% black overlay over the frozen play field
+  ctx.fillStyle = "rgba(0, 0, 0, 0.5)";
+  ctx.fillRect(0, 0, width, height);
+
+  // Panel
+  const panelW = Math.min(width - 80, 720);
+  const panelH = Math.min(height - 80, 660);
+  const panelX = (width - panelW) / 2;
+  const panelY = (height - panelH) / 2;
+  const primary = state.player.weapons[0];
+  const primaryDef = primary
+    ? WEAPON_DEFS.find((d) => d.type === primary.type)
+    : undefined;
+  const borderColor = primaryDef?.color ?? MODAL_CARD_BORDER;
+
+  ctx.fillStyle = "rgba(0, 0, 0, 0.75)";
+  ctx.fillRect(panelX, panelY, panelW, panelH);
+  ctx.lineWidth = 2;
+  ctx.strokeStyle = borderColor;
+  ctx.strokeRect(panelX + 1, panelY + 1, panelW - 2, panelH - 2);
+
+  const PAD = 18;
+  const innerX = panelX + PAD;
+  const innerW = panelW - PAD * 2;
+  let y = panelY + PAD;
+
+  // Header
+  ctx.font = "bold 18px ui-monospace, Menlo, monospace";
+  ctx.fillStyle = MODAL_TEXT;
+  ctx.textAlign = "left";
+  ctx.textBaseline = "top";
+  ctx.fillText("BUILD SUMMARY", innerX, y);
+  ctx.font = "13px ui-monospace, Menlo, monospace";
+  ctx.fillStyle = MODAL_DESC_TEXT;
+  ctx.textAlign = "right";
+  ctx.fillText(
+    `Time ${formatTime(state.time)}   LV ${state.player.level}   Kills ${state.killCount}`,
+    innerX + innerW,
+    y + 4
+  );
+  y += 32;
+  ctx.strokeStyle = MODAL_CARD_BORDER;
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(innerX, y);
+  ctx.lineTo(innerX + innerW, y);
+  ctx.stroke();
+  y += 12;
+
+  // Section 1: Weapons
+  ctx.font = "bold 14px ui-monospace, Menlo, monospace";
+  ctx.fillStyle = MODAL_TEXT;
+  ctx.textAlign = "left";
+  ctx.fillText("WEAPONS", innerX, y);
+  y += 22;
+  ctx.font = "13px ui-monospace, Menlo, monospace";
+  for (const weapon of state.player.weapons) {
+    const def = WEAPON_DEFS.find((d) => d.type === weapon.type);
+    if (!def) continue;
+    const evolved = "evolved" in weapon && (weapon as { evolved: boolean }).evolved;
+    const displayName = evolved && def.evolutionMod ? def.evolutionMod.name : def.name;
+
+    ctx.fillStyle = evolved ? EVOLUTION_NAME_COLOR : MODAL_TEXT;
+    ctx.textAlign = "left";
+    ctx.fillText(displayName, innerX, y);
+
+    ctx.fillStyle = MODAL_DESC_TEXT;
+    ctx.textAlign = "right";
+    ctx.fillText(def.getStats(weapon), innerX + innerW, y);
+    y += 18;
+
+    // Mod stacks for this weapon
+    const ownedMods = def.mods
+      .map((m) => ({ m, n: state.modStacks[m.id] ?? 0 }))
+      .filter((x) => x.n > 0)
+      .map((x) => `${x.m.name} x${x.n}`);
+    if (ownedMods.length > 0) {
+      ctx.fillStyle = MODAL_DESC_TEXT;
+      ctx.textAlign = "left";
+      const text = "  " + ownedMods.join(", ");
+      const lines = wrapText(ctx, text, innerW);
+      for (const line of lines) {
+        ctx.fillText(line, innerX, y);
+        y += 16;
+      }
+    }
+    y += 6;
+  }
+
+  // Section 2: Passives
+  y += 6;
+  ctx.font = "bold 14px ui-monospace, Menlo, monospace";
+  ctx.fillStyle = MODAL_TEXT;
+  ctx.textAlign = "left";
+  ctx.fillText("PASSIVES", innerX, y);
+  y += 22;
+  ctx.font = "13px ui-monospace, Menlo, monospace";
+  ctx.fillStyle = MODAL_DESC_TEXT;
+  const passiveLines: string[] = [];
+  for (const m of PASSIVE_MODS) {
+    const n = state.modStacks[m.id] ?? 0;
+    if (n <= 0) continue;
+    const effect = describePassive(state, m);
+    passiveLines.push(effect ? `${m.name} x${n} (${effect})` : `${m.name} x${n}`);
+  }
+  if (passiveLines.length === 0) {
+    ctx.fillText("None picked yet", innerX, y);
+    y += 18;
+  } else {
+    for (const line of passiveLines) {
+      ctx.fillText(line, innerX, y);
+      y += 18;
+    }
+  }
+
+  // Section 3: Player Stats (two-column)
+  y += 8;
+  ctx.font = "bold 14px ui-monospace, Menlo, monospace";
+  ctx.fillStyle = MODAL_TEXT;
+  ctx.fillText("PLAYER STATS", innerX, y);
+  y += 22;
+  ctx.font = "13px ui-monospace, Menlo, monospace";
+  const p = state.player;
+  const speedMult = p.moveSpeed / PLAYER_SPEED;
+  const stats: { label: string; value: string }[] = [
+    { label: "HP", value: `${Math.round(p.hp)} / ${p.maxHp}` },
+    {
+      label: "Move Speed",
+      value: `${Math.round(p.moveSpeed)} (x${speedMult.toFixed(2)})`,
+    },
+    {
+      label: "Damage Mult",
+      value: `x${p.globalDamageMult.toFixed(2)}`,
+    },
+    {
+      label: "Crit Chance",
+      value: `${Math.round(p.critChance * 100)}% (x${p.critMult.toFixed(1)})`,
+    },
+    { label: "Pickup Radius", value: `${Math.round(p.pickupRadius)}px` },
+    { label: "HP Regen", value: `${p.regen.toFixed(2)}/sec` },
+    {
+      label: "Dash Cooldown",
+      value: `${p.dashCooldown.toFixed(1)} / ${p.dashCooldownMax.toFixed(1)}s`,
+    },
+    { label: "Reroll Tokens", value: `${p.rerollTokens}` },
+  ];
+  const colW = innerW / 2 - 8;
+  for (let i = 0; i < stats.length; i++) {
+    const col = i % 2;
+    const row = Math.floor(i / 2);
+    const cellX = innerX + col * (colW + 16);
+    const cellY = y + row * 20;
+    ctx.fillStyle = MODAL_DESC_TEXT;
+    ctx.textAlign = "left";
+    ctx.fillText(stats[i].label, cellX, cellY);
+    ctx.fillStyle = MODAL_TEXT;
+    ctx.textAlign = "right";
+    ctx.fillText(stats[i].value, cellX + colW, cellY);
+  }
+
+  // Footer
+  ctx.font = PAUSE_HINT_FONT;
+  ctx.fillStyle = MODAL_DESC_TEXT;
+  ctx.textAlign = "center";
+  ctx.fillText("TAB or ESC to resume", panelX + panelW / 2, panelY + panelH - PAD - 8);
+}
+
+function describePassive(state: GameState, m: Mod): string {
+  const p = state.player;
+  switch (m.id) {
+    case "vitality":
+      return `+${p.maxHp - PLAYER_MAX_HP} max HP`;
+    case "swift":
+      return `+${Math.round((p.moveSpeed / PLAYER_SPEED - 1) * 100)}% move speed`;
+    case "magnet":
+      return `+${Math.round(p.pickupRadius - PICKUP_RADIUS_DEFAULT)}px pickup`;
+    case "regen":
+      return `+${p.regen.toFixed(2)}/sec`;
+    case "greed":
+      return `+${Math.round((p.xpMultiplier - 1) * 100)}% XP from gems`;
+    case "glass_cannon":
+      return "active";
+    case "crit":
+      return `${Math.round(p.critChance * 100)}% chance`;
+    case "berserker":
+      return `+${Math.round(p.berserkerStacks * 0.15 * 100)}% damage <50% hp`;
+    case "thorns":
+      return `${Math.round(p.thornsStacks * 0.25 * 100)}% reflect`;
+    case "iron_skin":
+      return `-${Math.round(p.ironSkinStacks * 0.10 * 100)}% damage taken`;
+    default:
+      return "";
+  }
 }
 
 function drawGrid(
@@ -1349,6 +2169,19 @@ function drawEnemies(
     const ey = e.prevPos.y + (e.pos.y - e.prevPos.y) * alpha;
     const sx = width / 2 + (ex - camX);
     const sy = height / 2 + (ey - camY);
+
+    if (e.species === "caster") {
+      drawCasterTelegraph(ctx, e, width, height, camX, camY);
+    }
+
+    if (e.species === "brute" && e.slamPhase === "windup") {
+      drawBruteSlamTelegraph(ctx, e, sx, sy);
+    }
+
+    if (e.species === "boss_brute_lord" && e.slamPhase === "windup") {
+      drawBossSlamTelegraph(ctx, e, sx, sy);
+    }
+
     if (e.burnTtl > 0) {
       const prev = ctx.globalAlpha;
       ctx.globalAlpha = 0.55 + 0.25 * Math.sin(state.time * 12 + e.id);
@@ -1361,15 +2194,51 @@ function drawEnemies(
     }
 
     const flashing = e.critFlashTtl > 0;
-    ctx.fillStyle = flashing
-      ? CRIT_FLASH_COLOR
-      : e.species === "shooter"
-      ? SHOOTER_COLOR
-      : ENEMY_COLOR;
     const r = flashing ? e.radius * CRIT_FLASH_RADIUS_MULT : e.radius;
-    ctx.beginPath();
-    ctx.arc(sx, sy, r, 0, Math.PI * 2);
-    ctx.fill();
+
+    if (flashing) {
+      ctx.fillStyle = CRIT_FLASH_COLOR;
+      ctx.beginPath();
+      ctx.arc(sx, sy, r, 0, Math.PI * 2);
+      ctx.fill();
+    } else {
+      drawEnemyBody(ctx, state, e, sx, sy, r);
+    }
+
+    if (e.species === "shielded") {
+      drawShield(ctx, e, sx, sy);
+    }
+
+    if (e.frostFlashTtl > 0) {
+      const prev = ctx.globalAlpha;
+      ctx.globalAlpha = e.frostFlashTtl / WEAPONS.FROST_NOVA.FROST_FLASH_DURATION;
+      ctx.fillStyle = WEAPONS.FROST_NOVA.FROST_FLASH_COLOR;
+      ctx.beginPath();
+      ctx.arc(sx, sy, r, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.globalAlpha = prev;
+    }
+
+    if (e.slowTimer > 0) {
+      const prev = ctx.globalAlpha;
+      ctx.globalAlpha = 0.5;
+      ctx.fillStyle = WEAPONS.FROST_NOVA.SLOW_TINT_COLOR;
+      ctx.beginPath();
+      ctx.arc(sx, sy, r, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.globalAlpha = 0.7;
+      ctx.fillStyle = WEAPONS.FROST_NOVA.ICE_PARTICLE_COLOR;
+      const t = state.time * 1.5 + e.id * 0.7;
+      for (let i = 0; i < 3; i++) {
+        const phase = t + i * 2.1;
+        const fx = sx + Math.sin(phase) * r * 0.6;
+        const fy = sy + (Math.cos(phase * 0.5) - 1) * r * 0.6;
+        ctx.beginPath();
+        ctx.arc(fx, fy, 1.2, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.globalAlpha = prev;
+    }
 
     if (e.freezeTtl > 0) {
       const prev = ctx.globalAlpha;
@@ -1392,6 +2261,352 @@ function drawEnemies(
       ctx.globalAlpha = prev;
     }
   }
+}
+
+function drawEnemyBody(
+  ctx: CanvasRenderingContext2D,
+  state: GameState,
+  e: Enemy,
+  sx: number,
+  sy: number,
+  r: number
+): void {
+  switch (e.species) {
+    case "shooter":
+      ctx.fillStyle = SHOOTER_COLOR;
+      ctx.beginPath();
+      ctx.arc(sx, sy, r, 0, Math.PI * 2);
+      ctx.fill();
+      return;
+    case "brute": {
+      const side = r * 1.7;
+      ctx.fillStyle = BRUTE_OUTLINE;
+      ctx.fillRect(sx - side / 2 - 2, sy - side / 2 - 2, side + 4, side + 4);
+      ctx.fillStyle = BRUTE_COLOR;
+      ctx.fillRect(sx - side / 2, sy - side / 2, side, side);
+      ctx.fillStyle = BRUTE_PLATING_COLOR;
+      const inner = side * 0.55;
+      ctx.fillRect(sx - inner / 2, sy - inner / 2, inner, inner);
+      return;
+    }
+    case "boss_brute_lord": {
+      const side = r * 1.7;
+      const outline = e.enraged ? BOSS_ENRAGED_OUTLINE : BOSS_OUTLINE;
+      const body = e.enraged ? BOSS_ENRAGED_COLOR : BOSS_COLOR;
+      const plating = e.enraged ? BOSS_ENRAGED_PLATING_COLOR : BOSS_PLATING_COLOR;
+      ctx.fillStyle = outline;
+      ctx.fillRect(sx - side / 2 - 4, sy - side / 2 - 4, side + 8, side + 8);
+      ctx.fillStyle = body;
+      ctx.fillRect(sx - side / 2, sy - side / 2, side, side);
+      ctx.fillStyle = plating;
+      const inner = side * 0.6;
+      ctx.fillRect(sx - inner / 2, sy - inner / 2, inner, inner);
+      // Crown-like notches on top
+      ctx.fillStyle = outline;
+      const notchH = 6;
+      const notchW = 6;
+      for (let i = -1; i <= 1; i++) {
+        ctx.fillRect(sx + i * notchW * 1.6 - notchW / 2, sy - side / 2 - notchH, notchW, notchH);
+      }
+      return;
+    }
+    case "bomber": {
+      const armed = e.armed;
+      const phase = e.pulsePhase * BOMBER_PULSE_HZ;
+      const pulseOn = armed && Math.floor(phase) % 2 === 0;
+      ctx.fillStyle = pulseOn ? BOMBER_HIGHLIGHT_COLOR : armed ? BOMBER_ARMED_DIM : BOMBER_COLOR;
+      ctx.beginPath();
+      ctx.arc(sx, sy, r, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = BOMBER_HIGHLIGHT_COLOR;
+      ctx.beginPath();
+      ctx.arc(sx - r * 0.25, sy - r * 0.25, r * 0.3, 0, Math.PI * 2);
+      ctx.fill();
+      return;
+    }
+    case "shielded":
+      ctx.fillStyle = SHIELDED_OUTLINE;
+      ctx.beginPath();
+      ctx.arc(sx, sy, r + 1, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = SHIELDED_COLOR;
+      ctx.beginPath();
+      ctx.arc(sx, sy, r, 0, Math.PI * 2);
+      ctx.fill();
+      return;
+    case "caster": {
+      ctx.fillStyle = CASTER_OUTLINE;
+      ctx.beginPath();
+      ctx.arc(sx, sy, r + 1, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = CASTER_COLOR;
+      ctx.beginPath();
+      ctx.arc(sx, sy, r, 0, Math.PI * 2);
+      ctx.fill();
+      const corePulse = 0.6 + 0.4 * Math.sin(state.time * 6 + e.id);
+      const coreR = r * 0.45 * corePulse;
+      const prev = ctx.globalAlpha;
+      ctx.globalAlpha = 0.85;
+      ctx.fillStyle = CASTER_CORE_COLOR;
+      ctx.beginPath();
+      ctx.arc(sx, sy, coreR, 0, Math.PI * 2);
+      ctx.fill();
+      if (e.castPhase === "channeling") {
+        ctx.globalAlpha = 0.55;
+        ctx.fillStyle = CASTER_GLOW_COLOR;
+        ctx.beginPath();
+        ctx.arc(sx, sy, r * 1.3, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.globalAlpha = prev;
+      return;
+    }
+    case "chaser":
+    default:
+      ctx.fillStyle = ENEMY_COLOR;
+      ctx.beginPath();
+      ctx.arc(sx, sy, r, 0, Math.PI * 2);
+      ctx.fill();
+      return;
+  }
+}
+
+function drawShield(
+  ctx: CanvasRenderingContext2D,
+  e: Enemy & { species: "shielded" },
+  sx: number,
+  sy: number
+): void {
+  const shieldR = e.radius + SHIELDED_SHIELD_OFFSET;
+  const prev = ctx.globalAlpha;
+
+  if (e.shieldHp > 0 && e.shieldHpMax > 0) {
+    const frac = e.shieldHp / e.shieldHpMax;
+    const sweep = Math.PI * 2 * frac;
+    const start = -Math.PI / 2;
+    const end = start + sweep;
+    const blend = 1 - frac;
+    const color = lerpHexColor(SHIELDED_SHIELD_FULL_COLOR, SHIELDED_SHIELD_LOW_COLOR, blend);
+    ctx.globalAlpha = 0.9;
+    ctx.strokeStyle = color;
+    ctx.lineWidth = SHIELDED_SHIELD_WIDTH;
+    ctx.beginPath();
+    ctx.arc(sx, sy, shieldR, start, end);
+    ctx.stroke();
+  }
+
+  if (e.shieldBreakTtl > 0) {
+    const f = e.shieldBreakTtl / SHIELDED_BREAK_TTL;
+    ctx.globalAlpha = f;
+    ctx.strokeStyle = SHIELDED_SHARD_COLOR;
+    ctx.lineWidth = 2;
+    const grow = (1 - f) * SHIELDED_SHARD_LENGTH;
+    for (let i = 0; i < SHIELDED_SHARD_COUNT; i++) {
+      const a = (Math.PI * 2 * i) / SHIELDED_SHARD_COUNT;
+      const x1 = sx + Math.cos(a) * (shieldR + 2);
+      const y1 = sy + Math.sin(a) * (shieldR + 2);
+      const x2 = sx + Math.cos(a) * (shieldR + 2 + grow);
+      const y2 = sy + Math.sin(a) * (shieldR + 2 + grow);
+      ctx.beginPath();
+      ctx.moveTo(x1, y1);
+      ctx.lineTo(x2, y2);
+      ctx.stroke();
+    }
+  }
+  ctx.globalAlpha = prev;
+}
+
+function drawBossSlamTelegraph(
+  ctx: CanvasRenderingContext2D,
+  e: Enemy & { species: "boss_brute_lord" },
+  sx: number,
+  sy: number
+): void {
+  const t = 1 - Math.max(0, e.slamWindupTimer / BOSS_SLAM_WINDUP);
+  const prev = ctx.globalAlpha;
+  ctx.globalAlpha = 0.25 + 0.6 * t;
+  ctx.fillStyle = BOSS_SLAM_TELEGRAPH_FILL;
+  ctx.beginPath();
+  ctx.arc(sx, sy, BOSS_SLAM_RADIUS * (0.4 + 0.6 * t), 0, Math.PI * 2);
+  ctx.fill();
+  ctx.globalAlpha = 0.7 + 0.3 * t;
+  ctx.strokeStyle = BOSS_SLAM_TELEGRAPH_RING;
+  ctx.lineWidth = 4;
+  ctx.beginPath();
+  ctx.arc(sx, sy, BOSS_SLAM_RADIUS * (0.4 + 0.6 * t), 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.globalAlpha = prev;
+}
+
+function drawBossHpBar(ctx: CanvasRenderingContext2D, state: GameState): void {
+  let boss: (Enemy & { species: "boss_brute_lord" }) | null = null;
+  for (const e of state.enemies) {
+    if (e.species === "boss_brute_lord" && e.alive) {
+      boss = e;
+      break;
+    }
+  }
+  if (!boss) return;
+
+  const { width } = state.viewport;
+  const barW = Math.round(width * BOSS_HP_BAR_WIDTH_FRAC);
+  const barH = BOSS_HP_BAR_HEIGHT;
+  const barX = Math.round((width - barW) / 2);
+  const barY = 24;
+
+  const frac = Math.max(0, Math.min(1, boss.hp / boss.maxHp));
+  let fill = BOSS_HP_BAR_FULL;
+  if (frac < 0.25) fill = BOSS_HP_BAR_LOW;
+  else if (frac < 0.5) fill = BOSS_HP_BAR_HALF;
+
+  ctx.fillStyle = BOSS_HP_BAR_BG_COLOR;
+  ctx.fillRect(barX - 2, barY - 2, barW + 4, barH + 4);
+  ctx.strokeStyle = BOSS_HP_BAR_BORDER;
+  ctx.lineWidth = 2;
+  ctx.strokeRect(barX - 2, barY - 2, barW + 4, barH + 4);
+
+  ctx.fillStyle = "#1a0707";
+  ctx.fillRect(barX, barY, barW, barH);
+  ctx.fillStyle = fill;
+  ctx.fillRect(barX, barY, Math.max(0, Math.round(barW * frac)), barH);
+
+  ctx.font = BOSS_HP_BAR_LABEL_FONT;
+  ctx.fillStyle = "#e6e9ef";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(
+    `BRUTE LORD - WINDOW ${boss.windowIndex}    ${Math.max(0, Math.round(boss.hp))} / ${boss.maxHp}`,
+    barX + barW / 2,
+    barY + barH / 2
+  );
+}
+
+function drawBruteSlamTelegraph(
+  ctx: CanvasRenderingContext2D,
+  e: Enemy & { species: "brute" },
+  sx: number,
+  sy: number
+): void {
+  const t = 1 - Math.max(0, e.slamWindupTimer / BRUTE_SLAM_WINDUP);
+  const prev = ctx.globalAlpha;
+  ctx.globalAlpha = 0.2 + 0.55 * t;
+  ctx.fillStyle = BRUTE_SLAM_TELEGRAPH_FILL;
+  ctx.beginPath();
+  ctx.arc(sx, sy, BRUTE_SLAM_RADIUS * (0.4 + 0.6 * t), 0, Math.PI * 2);
+  ctx.fill();
+  ctx.globalAlpha = 0.6 + 0.4 * t;
+  ctx.strokeStyle = BRUTE_SLAM_TELEGRAPH_RING;
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.arc(sx, sy, BRUTE_SLAM_RADIUS * (0.4 + 0.6 * t), 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.globalAlpha = prev;
+}
+
+function lerpHexColor(a: string, b: string, t: number): string {
+  const ar = parseInt(a.slice(1, 3), 16);
+  const ag = parseInt(a.slice(3, 5), 16);
+  const ab = parseInt(a.slice(5, 7), 16);
+  const br = parseInt(b.slice(1, 3), 16);
+  const bg = parseInt(b.slice(3, 5), 16);
+  const bb = parseInt(b.slice(5, 7), 16);
+  const r = Math.round(ar + (br - ar) * t);
+  const g = Math.round(ag + (bg - ag) * t);
+  const bl = Math.round(ab + (bb - ab) * t);
+  return `rgb(${r}, ${g}, ${bl})`;
+}
+
+function drawCasterTelegraph(
+  ctx: CanvasRenderingContext2D,
+  e: Enemy & { species: "caster" },
+  width: number,
+  height: number,
+  camX: number,
+  camY: number
+): void {
+  if (e.castPhase === "channeling") {
+    const t = 1 - Math.max(0, e.castPhaseTimer / CASTER_CHANNEL_TIME);
+    const cx = width / 2 + (e.castTargetX - camX);
+    const cy = height / 2 + (e.castTargetY - camY);
+    const prev = ctx.globalAlpha;
+    ctx.globalAlpha = 0.18 + 0.55 * t;
+    ctx.fillStyle = CASTER_AOE_FILL_COLOR;
+    ctx.beginPath();
+    ctx.arc(cx, cy, CASTER_AOE_RADIUS, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalAlpha = 0.7 + 0.3 * t;
+    ctx.strokeStyle = CASTER_AOE_RING_COLOR;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(cx, cy, CASTER_AOE_RADIUS, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.globalAlpha = prev;
+  }
+
+  if (e.attackFlashTtl > 0) {
+    const cx = width / 2 + (e.castTargetX - camX);
+    const cy = height / 2 + (e.castTargetY - camY);
+    const f = e.attackFlashTtl / CASTER_FLASH_DURATION;
+    const prev = ctx.globalAlpha;
+    ctx.globalAlpha = f;
+    ctx.fillStyle = CASTER_AOE_STRIKE_COLOR;
+    ctx.beginPath();
+    ctx.arc(cx, cy, CASTER_AOE_RADIUS * (0.85 + (1 - f) * 0.5), 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalAlpha = prev;
+  }
+}
+
+function drawExplosions(
+  ctx: CanvasRenderingContext2D,
+  state: GameState,
+  camX: number,
+  camY: number
+): void {
+  if (state.explosions.length === 0) return;
+  const { width, height } = state.viewport;
+  for (const ex of state.explosions) {
+    const t = 1 - Math.max(0, ex.ttl / ex.ttlMax);
+    const sx = width / 2 + (ex.pos.x - camX);
+    const sy = height / 2 + (ex.pos.y - camY);
+    const r = ex.radius * (0.4 + 0.6 * t);
+    const prev = ctx.globalAlpha;
+    ctx.globalAlpha = 1 - t;
+    ctx.fillStyle = ex.innerColor;
+    ctx.beginPath();
+    ctx.arc(sx, sy, r * 0.5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = ex.outerColor;
+    ctx.lineWidth = ex.ringWidth;
+    ctx.beginPath();
+    ctx.arc(sx, sy, r, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.globalAlpha = prev;
+  }
+}
+
+function drawBomberVignette(
+  ctx: CanvasRenderingContext2D,
+  state: GameState
+): void {
+  if (state.bomberVignetteTtl <= 0) return;
+  const { width, height } = state.viewport;
+  const t = state.bomberVignetteTtl / BOMBER_VIGNETTE_DURATION;
+  const grad = ctx.createRadialGradient(
+    width / 2,
+    height / 2,
+    Math.min(width, height) * 0.25,
+    width / 2,
+    height / 2,
+    Math.max(width, height) * 0.6
+  );
+  grad.addColorStop(0, BOMBER_VIGNETTE_INNER);
+  grad.addColorStop(1, BOMBER_VIGNETTE_OUTER);
+  const prev = ctx.globalAlpha;
+  ctx.globalAlpha = t;
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, width, height);
+  ctx.globalAlpha = prev;
 }
 
 function drawEnemyProjectiles(
@@ -1423,15 +2638,15 @@ function drawProjectiles(
   camY: number
 ): void {
   const { width, height } = state.viewport;
-  ctx.fillStyle = PROJECTILE_COLOR;
   for (const p of state.projectiles) {
     if (!p.alive) continue;
+    ctx.fillStyle = p.color ?? PROJECTILE_COLOR;
     const px = p.prevPos.x + (p.pos.x - p.prevPos.x) * alpha;
     const py = p.prevPos.y + (p.pos.y - p.prevPos.y) * alpha;
     const sx = width / 2 + (px - camX);
     const sy = height / 2 + (py - camY);
     ctx.beginPath();
-    ctx.arc(sx, sy, PROJECTILE_RADIUS, 0, Math.PI * 2);
+    ctx.arc(sx, sy, p.radius || PROJECTILE_RADIUS, 0, Math.PI * 2);
     ctx.fill();
   }
 }
@@ -2162,12 +3377,18 @@ function drawHud(ctx: CanvasRenderingContext2D, state: GameState): void {
     12,
     32
   );
-  ctx.fillText(`DMG x${state.player.globalDamageMult.toFixed(2)}`, 12, 52);
-  ctx.fillText(`Kills: ${state.killCount}`, 12, 72);
+  const prevFont = ctx.font;
+  ctx.font = "12px ui-monospace, Menlo, monospace";
+  ctx.fillStyle = "#8a93a6";
+  ctx.fillText(`+${gemValueForTime(state.time)} XP/gem`, 12, 50);
+  ctx.font = prevFont;
+  ctx.fillStyle = HUD_COLOR;
+  ctx.fillText(`DMG x${state.player.globalDamageMult.toFixed(2)}`, 12, 68);
+  ctx.fillText(`Kills: ${state.killCount}`, 12, 88);
   const salvageMult = getSalvageMultiplier(state.save);
   const displayScrap = Math.floor(state.player.runScrap * salvageMult);
   ctx.fillStyle = WORKSHOP_SCRAP_COLOR;
-  ctx.fillText(`Run Scrap: ${displayScrap}`, 12, 92);
+  ctx.fillText(`Run Scrap: ${displayScrap}`, 12, 108);
   ctx.fillStyle = HUD_COLOR;
 
   ctx.textAlign = "center";
@@ -2177,6 +3398,63 @@ function drawHud(ctx: CanvasRenderingContext2D, state: GameState): void {
   drawExtractionStatus(ctx, state);
   drawWeaponStats(ctx, state);
   drawWeaponList(ctx, state);
+  drawDashHud(ctx, state);
+  drawLiveDps(ctx, state);
+  drawBossHpBar(ctx, state);
+}
+
+function drawLiveDps(ctx: CanvasRenderingContext2D, state: GameState): void {
+  const { width, height } = state.viewport;
+  const dps = Math.round(liveDps(state));
+  const text = `DPS: ${dps}`;
+  ctx.font = "12px ui-monospace, Menlo, monospace";
+  ctx.fillStyle = "#a8b1c2";
+  ctx.textAlign = "right";
+  ctx.textBaseline = "top";
+  ctx.fillText(text, width - 12, height - 14 - 14);
+}
+
+function drawDashHud(ctx: CanvasRenderingContext2D, state: GameState): void {
+  const { height } = state.viewport;
+  const p = state.player;
+  const cx = 12 + DASH_HUD_ICON_RADIUS;
+  const cy = height - 14 - DASH_HUD_ICON_RADIUS;
+  const ready = p.dashCooldown <= 0;
+
+  ctx.fillStyle = "#1a1f29";
+  ctx.beginPath();
+  ctx.arc(cx, cy, DASH_HUD_ICON_RADIUS, 0, Math.PI * 2);
+  ctx.fill();
+
+  if (ready) {
+    ctx.fillStyle = DASH_HUD_READY_COLOR;
+    ctx.beginPath();
+    ctx.arc(cx, cy, DASH_HUD_ICON_RADIUS - 2, 0, Math.PI * 2);
+    ctx.fill();
+  } else if (p.dashCooldownMax > 0) {
+    const frac = 1 - p.dashCooldown / p.dashCooldownMax;
+    const start = -Math.PI / 2;
+    const end = start + Math.PI * 2 * frac;
+    ctx.fillStyle = DASH_HUD_PROGRESS_COLOR;
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.arc(cx, cy, DASH_HUD_ICON_RADIUS - 2, start, end);
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  ctx.font = HUD_FONT;
+  ctx.textBaseline = "middle";
+  ctx.textAlign = "left";
+  const labelX = cx + DASH_HUD_ICON_RADIUS + 8;
+  ctx.fillStyle = ready ? DASH_HUD_LABEL_COLOR : DASH_HUD_DIMMED_COLOR;
+  ctx.fillText("DASH [SPACE]", labelX, cy);
+
+  if (!ready) {
+    const labelW = ctx.measureText("DASH [SPACE]").width;
+    ctx.fillStyle = DASH_HUD_LABEL_COLOR;
+    ctx.fillText(`${p.dashCooldown.toFixed(1)}s`, labelX + labelW + 10, cy);
+  }
 }
 
 function drawExtractionStatus(
@@ -2292,7 +3570,7 @@ function drawWeaponStats(ctx: CanvasRenderingContext2D, state: GameState): void 
   ctx.textAlign = "left";
   ctx.textBaseline = "bottom";
   const lineH = 18;
-  const baseY = state.viewport.height - 12;
+  const baseY = state.viewport.height - 12 - (DASH_HUD_ICON_RADIUS * 2 + 12);
   for (let i = 0; i < lines.length; i++) {
     ctx.fillText(lines[i], 12, baseY - (lines.length - 1 - i) * lineH);
   }
@@ -2431,7 +3709,7 @@ function drawWeaponSelect(ctx: CanvasRenderingContext2D, state: GameState): void
   ctx.fillStyle = MODAL_TEXT;
   ctx.textAlign = "center";
   ctx.textBaseline = "top";
-  ctx.fillText("Choose Starter", width / 2, 24);
+  ctx.fillText("SELECT YOUR STARTING WEAPON", width / 2, STARTER_HEADER_TOP_PADDING);
 
   for (let i = 0; i < STARTER_WEAPON_IDS.length; i++) {
     drawStarterCard(ctx, state, i);
@@ -2447,6 +3725,10 @@ function drawWeaponSelect(ctx: CanvasRenderingContext2D, state: GameState): void
     state.input.mouse,
     !canStart
   );
+}
+
+function drawFirstPick(ctx: CanvasRenderingContext2D, state: GameState): void {
+  drawLevelUpModal(ctx, state, "Choose Your First Upgrade");
 }
 
 function drawStarterCard(
@@ -2569,7 +3851,11 @@ function drawUpgradeCard(
   drawButton(ctx, buy, buyLabel, state.input.mouse, isMaxed || !canAfford);
 }
 
-function drawLevelUpModal(ctx: CanvasRenderingContext2D, state: GameState): void {
+function drawLevelUpModal(
+  ctx: CanvasRenderingContext2D,
+  state: GameState,
+  title?: string
+): void {
   const offer = state.offer;
   if (!offer) return;
   const { width, height } = state.viewport;
@@ -2581,7 +3867,11 @@ function drawLevelUpModal(ctx: CanvasRenderingContext2D, state: GameState): void
   ctx.fillStyle = MODAL_TEXT;
   ctx.textAlign = "center";
   ctx.textBaseline = "alphabetic";
-  ctx.fillText(`LEVEL ${state.player.level}`, width / 2, height / 2 - 200);
+  ctx.fillText(
+    title ?? `LEVEL ${state.player.level}`,
+    width / 2,
+    height / 2 - 200
+  );
 
   const rects = getCardRects(state);
   const mx = state.input.mouse.x;
@@ -2663,52 +3953,190 @@ function drawEndScreen(
   ctx.fillStyle = MODAL_BG;
   ctx.fillRect(0, 0, width, height);
 
+  // Title
   ctx.font = END_TITLE_FONT;
   ctx.fillStyle = outcome === "extracted" ? END_WON_COLOR : END_LOST_COLOR;
   ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  ctx.fillText(
-    outcome === "extracted" ? "EXTRACTED" : "DEAD",
-    width / 2,
-    height / 2 - 80
-  );
+  ctx.textBaseline = "top";
+  ctx.fillText(outcome === "extracted" ? "EXTRACTED" : "DEAD", width / 2, 40);
 
-  ctx.font = END_STATS_FONT;
-  ctx.fillStyle = MODAL_TEXT;
-  const statsLine =
-    outcome === "extracted"
-      ? `Time ${formatTime(state.time)}   LV ${state.player.level}   Kills ${state.killCount}   Mult ${state.extractMultiplierLastRun.toFixed(1)}x`
-      : `Time ${formatTime(state.time)}   LV ${state.player.level}   Kills ${state.killCount}`;
-  ctx.fillText(statsLine, width / 2, height / 2);
+  // Two-column body
+  const colGap = 40;
+  const colW = 320;
+  const bodyW = colW * 2 + colGap;
+  const bodyX = (width - bodyW) / 2;
+  const bodyY = 130;
+  const colHeight = 200;
 
-  if (outcome === "extracted") {
-    ctx.fillStyle = WORKSHOP_SCRAP_COLOR;
-    ctx.fillText(
-      `Scrap Banked: ${state.scrapEarnedLastRun}  (${state.save.totalScrap} total)`,
-      width / 2,
-      height / 2 + 40
-    );
-  } else {
-    ctx.fillStyle = SCRAP_LOST_COLOR;
-    ctx.fillText(
-      `Scrap Lost: ${state.scrapLostLastRun}`,
-      width / 2,
-      height / 2 + 40
-    );
-  }
+  drawEndStatsColumn(ctx, state, bodyX, bodyY, colW, outcome);
+  drawEndDamageBreakdown(ctx, state, bodyX + colW + colGap, bodyY, colW, colHeight);
 
-  if (state.unlocksThisRun.length > 0) {
-    ctx.fillStyle = UNLOCK_LINE_COLOR;
-    for (let i = 0; i < state.unlocksThisRun.length; i++) {
-      const a = state.unlocksThisRun[i];
-      ctx.fillText(
-        `UNLOCKED: ${a.weaponName} (${a.desc})`,
-        width / 2,
-        height / 2 + 75 + i * 28
-      );
-    }
-  }
+  // Highlights
+  drawEndHighlights(ctx, state, bodyX, bodyY + colHeight + 24, bodyW, outcome);
 
   drawButton(ctx, getEndScreenWorkshopRect(state), "Workshop", state.input.mouse, false);
   drawButton(ctx, getPlayAgainRect(state), "Play Again", state.input.mouse, false);
+}
+
+function drawEndStatsColumn(
+  ctx: CanvasRenderingContext2D,
+  state: GameState,
+  x: number,
+  y: number,
+  w: number,
+  outcome: "extracted" | "lost"
+): void {
+  ctx.font = "bold 16px ui-monospace, Menlo, monospace";
+  ctx.fillStyle = MODAL_TEXT;
+  ctx.textAlign = "left";
+  ctx.textBaseline = "top";
+  ctx.fillText("RUN STATS", x, y);
+
+  ctx.font = END_STATS_FONT;
+  ctx.fillStyle = MODAL_TEXT;
+  const lineH = 24;
+  let row = y + 28;
+  const lines: { label: string; value: string; color?: string }[] = [
+    { label: "Time", value: formatTime(state.time) },
+    { label: "Level", value: `${state.player.level}` },
+    { label: "Kills", value: `${state.killCount}` },
+    { label: "Damage Dealt", value: `${Math.round(state.totalDamageDealt)}` },
+    { label: "Damage Taken", value: `${Math.round(state.totalDamageTaken)}` },
+  ];
+  for (const ln of lines) {
+    ctx.fillStyle = MODAL_DESC_TEXT;
+    ctx.textAlign = "left";
+    ctx.fillText(ln.label, x, row);
+    ctx.fillStyle = ln.color ?? MODAL_TEXT;
+    ctx.textAlign = "right";
+    ctx.fillText(ln.value, x + w, row);
+    row += lineH;
+  }
+
+  ctx.fillStyle = MODAL_DESC_TEXT;
+  ctx.textAlign = "left";
+  if (outcome === "extracted") {
+    ctx.fillText("Scrap Banked", x, row);
+    ctx.fillStyle = WORKSHOP_SCRAP_COLOR;
+    ctx.textAlign = "right";
+    ctx.fillText(
+      `+${state.scrapEarnedLastRun} (${state.extractMultiplierLastRun.toFixed(1)}x)`,
+      x + w,
+      row
+    );
+  } else {
+    ctx.fillText("Scrap Lost", x, row);
+    ctx.fillStyle = SCRAP_LOST_COLOR;
+    ctx.textAlign = "right";
+    ctx.fillText(`-${state.scrapLostLastRun}`, x + w, row);
+  }
+}
+
+function drawEndDamageBreakdown(
+  ctx: CanvasRenderingContext2D,
+  state: GameState,
+  x: number,
+  y: number,
+  w: number,
+  h: number
+): void {
+  ctx.font = "bold 16px ui-monospace, Menlo, monospace";
+  ctx.fillStyle = MODAL_TEXT;
+  ctx.textAlign = "left";
+  ctx.textBaseline = "top";
+  ctx.fillText("DAMAGE TAKEN", x, y);
+
+  const total = state.totalDamageTaken;
+  const sources = Object.entries(state.damageBySource).sort((a, b) => b[1] - a[1]);
+  if (total <= 0 || sources.length === 0) {
+    ctx.font = END_STATS_FONT;
+    ctx.fillStyle = MODAL_DESC_TEXT;
+    ctx.fillText("No damage taken", x, y + 32);
+    return;
+  }
+
+  const rowH = 22;
+  const labelW = 110;
+  const pctW = 56;
+  const barX = x + labelW + 4;
+  const barEnd = x + w - pctW - 4;
+  const barMax = Math.max(20, barEnd - barX);
+  let row = y + 28;
+  ctx.font = END_STATS_FONT;
+  for (const [src, dmg] of sources) {
+    if (row > y + h) break;
+    const pct = dmg / total;
+    ctx.fillStyle = MODAL_DESC_TEXT;
+    ctx.textAlign = "left";
+    ctx.textBaseline = "middle";
+    const label = DAMAGE_SOURCE_LABELS[src] ?? src;
+    ctx.fillText(label, x, row + rowH / 2);
+
+    ctx.fillStyle = "#1a1f29";
+    ctx.fillRect(barX, row + 4, barMax, rowH - 8);
+    ctx.fillStyle = DAMAGE_SOURCE_COLORS[src] ?? "#7a818f";
+    ctx.fillRect(barX, row + 4, Math.max(2, barMax * pct), rowH - 8);
+
+    ctx.fillStyle = MODAL_TEXT;
+    ctx.textAlign = "right";
+    ctx.fillText(`${Math.round(pct * 100)}%`, x + w, row + rowH / 2);
+    row += rowH;
+  }
+}
+
+function drawEndHighlights(
+  ctx: CanvasRenderingContext2D,
+  state: GameState,
+  x: number,
+  y: number,
+  w: number,
+  outcome: "extracted" | "lost"
+): void {
+  ctx.font = "bold 16px ui-monospace, Menlo, monospace";
+  ctx.fillStyle = MODAL_TEXT;
+  ctx.textAlign = "left";
+  ctx.textBaseline = "top";
+  ctx.fillText("HIGHLIGHTS", x, y);
+
+  ctx.font = END_STATS_FONT;
+  let row = y + 28;
+  const lineH = 22;
+
+  if (state.bestMoment.dps > 0) {
+    ctx.fillStyle = END_WON_COLOR;
+    ctx.fillText(
+      `Best Moment: ${Math.round(state.bestMoment.dps)} DPS at ${formatTime(state.bestMoment.time)}`,
+      x,
+      row
+    );
+    row += lineH;
+  }
+  if (state.worstMoment.damage > 0) {
+    const src = state.worstMoment.dominantSource;
+    const label = src ? DAMAGE_SOURCE_LABELS[src] ?? src : "unknown";
+    ctx.fillStyle = END_LOST_COLOR;
+    ctx.fillText(
+      `Worst Moment: -${Math.round(state.worstMoment.damage)} HP in 3s at ${formatTime(state.worstMoment.time)} (mostly from ${label})`,
+      x,
+      row
+    );
+    row += lineH;
+  }
+  if (outcome === "lost" && state.causeOfDeath) {
+    const label =
+      DAMAGE_SOURCE_LABELS[state.causeOfDeath] ?? state.causeOfDeath;
+    ctx.fillStyle = END_LOST_COLOR;
+    ctx.fillText(`Killed by: ${label}`, x, row);
+    row += lineH;
+  }
+
+  if (state.unlocksThisRun.length > 0) {
+    row += 4;
+    ctx.fillStyle = UNLOCK_LINE_COLOR;
+    for (const a of state.unlocksThisRun) {
+      ctx.fillText(`UNLOCKED: ${a.weaponName} (${a.desc})`, x, row);
+      row += lineH;
+    }
+  }
+  void w;
 }

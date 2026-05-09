@@ -9,7 +9,10 @@ import type {
   MinesWeapon,
   OrbWeapon,
   PistolWeapon,
+  DroneWeapon,
+  FrostNovaWeapon,
   RepulsorWeapon,
+  RicochetWeapon,
   RocketLauncherWeapon,
   SwordWeapon,
   Weapon,
@@ -105,6 +108,18 @@ export function findRepulsorWeapon(state: GameState): RepulsorWeapon | undefined
 
 export function findSwordWeapon(state: GameState): SwordWeapon | undefined {
   return state.player.weapons.find((w): w is SwordWeapon => w.type === "sword");
+}
+
+export function findRicochetWeapon(state: GameState): RicochetWeapon | undefined {
+  return state.player.weapons.find((w): w is RicochetWeapon => w.type === "ricochet");
+}
+
+export function findDroneWeapon(state: GameState): DroneWeapon | undefined {
+  return state.player.weapons.find((w): w is DroneWeapon => w.type === "drone");
+}
+
+export function findFrostNovaWeapon(state: GameState): FrostNovaWeapon | undefined {
+  return state.player.weapons.find((w): w is FrostNovaWeapon => w.type === "frost_nova");
 }
 
 export const pistolWeaponDef: WeaponDef = {
@@ -1170,7 +1185,8 @@ export const swordWeaponDef: WeaponDef = {
   type: "sword",
   name: WEAPONS.SWORD.NAME,
   color: WEAPONS.SWORD.COLOR,
-  isStarter: false,
+  isStarter: true,
+  starterOnly: true,
   create: () => ({
     type: "sword",
     damage: WEAPONS.SWORD.DAMAGE,
@@ -1270,6 +1286,311 @@ export const swordWeaponDef: WeaponDef = {
   },
 };
 
+export const ricochetWeaponDef: WeaponDef = {
+  type: "ricochet",
+  name: WEAPONS.RICOCHET.NAME,
+  color: WEAPONS.RICOCHET.COLOR,
+  isStarter: false,
+  create: () => ({
+    type: "ricochet",
+    damage: WEAPONS.RICOCHET.DAMAGE,
+    fireRate: WEAPONS.RICOCHET.FIRE_RATE,
+    projectileSpeed: WEAPONS.RICOCHET.PROJECTILE_SPEED,
+    bounceCount: WEAPONS.RICOCHET.BOUNCE_COUNT,
+    bounceSearchRange: WEAPONS.RICOCHET.BOUNCE_SEARCH_RANGE,
+    cooldownRemaining: 0,
+    evolved: false,
+  }),
+  getStats: (w) => {
+    const r = w as RicochetWeapon;
+    return `DMG ${r.damage.toFixed(1)}  BOUNCE ${r.bounceCount}`;
+  },
+  summonMod: {
+    id: "summon_ricochet",
+    name: "Summon Ricochet Gun",
+    desc: "Bouncing projectile that chains targets",
+    category: "weapon",
+    isSummon: true,
+    eligible: () => true,
+    apply: (s) => s.player.weapons.push(ricochetWeaponDef.create()),
+  },
+  mods: [
+    {
+      id: "ricochet_heavy",
+      name: "Heavy Slug",
+      desc: `+${Math.round((WEAPONS.RICOCHET.MODS.HEAVY_SLUG_MULT - 1) * 100)}% ricochet damage`,
+      category: "weapon",
+      isDamageRelevant: true,
+      eligible: () => true,
+      apply: (s) => {
+        const w = findRicochetWeapon(s);
+        if (w) w.damage *= WEAPONS.RICOCHET.MODS.HEAVY_SLUG_MULT;
+      },
+    },
+    {
+      id: "ricochet_extra_bounce",
+      name: "Extra Bounce",
+      desc: `+${WEAPONS.RICOCHET.MODS.EXTRA_BOUNCE_STEP} bounce (max +${WEAPONS.RICOCHET.MODS.EXTRA_BOUNCE_MAX_BONUS})`,
+      category: "weapon",
+      isDamageRelevant: true,
+      eligible: (s) => {
+        const w = findRicochetWeapon(s);
+        return (
+          !!w &&
+          w.bounceCount <
+            WEAPONS.RICOCHET.BOUNCE_COUNT + WEAPONS.RICOCHET.MODS.EXTRA_BOUNCE_MAX_BONUS
+        );
+      },
+      apply: (s) => {
+        const w = findRicochetWeapon(s)!;
+        const cap =
+          WEAPONS.RICOCHET.BOUNCE_COUNT + WEAPONS.RICOCHET.MODS.EXTRA_BOUNCE_MAX_BONUS;
+        w.bounceCount = Math.min(cap, w.bounceCount + WEAPONS.RICOCHET.MODS.EXTRA_BOUNCE_STEP);
+      },
+    },
+    {
+      id: "ricochet_snappy",
+      name: "Snappy Bounces",
+      desc: `+${WEAPONS.RICOCHET.MODS.SNAPPY_SPEED_BONUS} speed, +${WEAPONS.RICOCHET.MODS.SNAPPY_RANGE_BONUS}px chain range`,
+      category: "weapon",
+      eligible: () => true,
+      apply: (s) => {
+        const w = findRicochetWeapon(s);
+        if (!w) return;
+        w.projectileSpeed += WEAPONS.RICOCHET.MODS.SNAPPY_SPEED_BONUS;
+        w.bounceSearchRange += WEAPONS.RICOCHET.MODS.SNAPPY_RANGE_BONUS;
+      },
+    },
+  ],
+  evolutionMod: {
+    id: EVOLUTIONS.RICOCHET.ID,
+    name: EVOLUTIONS.RICOCHET.NAME,
+    desc: EVOLUTIONS.RICOCHET.DESC,
+    category: "evolution",
+    isEvolution: true,
+    isDamageRelevant: true,
+    eligible: (s) => {
+      const w = findRicochetWeapon(s);
+      return !!w && !w.evolved;
+    },
+    apply: (s) => {
+      const w = findRicochetWeapon(s);
+      if (!w || w.evolved) return;
+      w.bounceCount = EVOLUTIONS.RICOCHET.BOUNCE_COUNT;
+      w.evolved = true;
+    },
+  },
+};
+
+export const droneWeaponDef: WeaponDef = {
+  type: "drone",
+  name: WEAPONS.DRONE.NAME,
+  color: WEAPONS.DRONE.COLOR,
+  isStarter: false,
+  create: () => ({
+    type: "drone",
+    droneCount: WEAPONS.DRONE.INITIAL_COUNT,
+    droneDamage: WEAPONS.DRONE.DAMAGE,
+    droneFireRate: WEAPONS.DRONE.FIRE_RATE,
+    droneProjectileSpeed: WEAPONS.DRONE.PROJECTILE_SPEED,
+    droneRange: WEAPONS.DRONE.RANGE,
+    droneFollowOffset: WEAPONS.DRONE.FOLLOW_OFFSET,
+    evolved: false,
+  }),
+  getStats: (w) => {
+    const d = w as DroneWeapon;
+    return `DMG ${d.droneDamage.toFixed(1)}  N ${d.droneCount}  RATE ${d.droneFireRate.toFixed(1)}`;
+  },
+  summonMod: {
+    id: "summon_drone",
+    name: "Summon Drone Buddy",
+    desc: "AI companion that auto-fires at nearby enemies",
+    category: "weapon",
+    isSummon: true,
+    eligible: () => true,
+    apply: (s) => s.player.weapons.push(droneWeaponDef.create()),
+  },
+  mods: [
+    {
+      id: "drone_upgrade",
+      name: "Drone Upgrade",
+      desc: `+${Math.round((WEAPONS.DRONE.MODS.UPGRADE_DAMAGE_MULT - 1) * 100)}% drone damage`,
+      category: "weapon",
+      isDamageRelevant: true,
+      eligible: () => true,
+      apply: (s) => {
+        const w = findDroneWeapon(s);
+        if (w) w.droneDamage *= WEAPONS.DRONE.MODS.UPGRADE_DAMAGE_MULT;
+      },
+    },
+    {
+      id: "drone_twin",
+      name: "Twin Drone",
+      desc: `+${WEAPONS.DRONE.MODS.TWIN_STEP} drone (max +${WEAPONS.DRONE.MODS.TWIN_MAX_BONUS})`,
+      category: "weapon",
+      eligible: (s) => {
+        const w = findDroneWeapon(s);
+        if (!w) return false;
+        if (w.evolved) return false;
+        return (
+          w.droneCount <
+          WEAPONS.DRONE.INITIAL_COUNT + WEAPONS.DRONE.MODS.TWIN_MAX_BONUS
+        );
+      },
+      apply: (s) => {
+        const w = findDroneWeapon(s);
+        if (!w) return;
+        const cap = WEAPONS.DRONE.INITIAL_COUNT + WEAPONS.DRONE.MODS.TWIN_MAX_BONUS;
+        w.droneCount = Math.min(cap, w.droneCount + WEAPONS.DRONE.MODS.TWIN_STEP);
+      },
+    },
+    {
+      id: "drone_rapid",
+      name: "Rapid Drone",
+      desc: `+${WEAPONS.DRONE.MODS.RAPID_STEP}/sec drone fire (max ${WEAPONS.DRONE.MODS.RAPID_MAX})`,
+      category: "weapon",
+      isDamageRelevant: true,
+      eligible: (s) => {
+        const w = findDroneWeapon(s);
+        return !!w && w.droneFireRate < WEAPONS.DRONE.MODS.RAPID_MAX - 1e-6;
+      },
+      apply: (s) => {
+        const w = findDroneWeapon(s);
+        if (!w) return;
+        w.droneFireRate = Math.min(
+          WEAPONS.DRONE.MODS.RAPID_MAX,
+          w.droneFireRate + WEAPONS.DRONE.MODS.RAPID_STEP
+        );
+      },
+    },
+  ],
+  evolutionMod: {
+    id: EVOLUTIONS.DRONE.ID,
+    name: EVOLUTIONS.DRONE.NAME,
+    desc: EVOLUTIONS.DRONE.DESC,
+    category: "evolution",
+    isEvolution: true,
+    isDamageRelevant: true,
+    eligible: (s) => {
+      const w = findDroneWeapon(s);
+      return !!w && !w.evolved;
+    },
+    apply: (s) => {
+      const w = findDroneWeapon(s);
+      if (!w || w.evolved) return;
+      w.droneCount = EVOLUTIONS.DRONE.DRONE_COUNT;
+      w.droneDamage *= EVOLUTIONS.DRONE.DAMAGE_MULT;
+      w.evolved = true;
+    },
+  },
+};
+
+export const frostNovaWeaponDef: WeaponDef = {
+  type: "frost_nova",
+  name: WEAPONS.FROST_NOVA.NAME,
+  color: WEAPONS.FROST_NOVA.COLOR,
+  isStarter: false,
+  create: () => ({
+    type: "frost_nova",
+    damage: WEAPONS.FROST_NOVA.DAMAGE,
+    radius: WEAPONS.FROST_NOVA.RADIUS,
+    pulseRate: WEAPONS.FROST_NOVA.PULSE_RATE,
+    slowAmount: WEAPONS.FROST_NOVA.SLOW_AMOUNT,
+    slowDuration: WEAPONS.FROST_NOVA.SLOW_DURATION,
+    pulseCooldown: 1 / WEAPONS.FROST_NOVA.PULSE_RATE,
+    pulseVizTtl: 0,
+    pulseVizRadius: 0,
+    evolved: false,
+  }),
+  getStats: (w) => {
+    const f = w as FrostNovaWeapon;
+    return `DMG ${f.damage.toFixed(1)}  R ${Math.round(f.radius)}  SLOW ${f.slowDuration.toFixed(1)}s`;
+  },
+  summonMod: {
+    id: "summon_frost_nova",
+    name: "Summon Frost Nova",
+    desc: "Periodic pulse: damages and slows all nearby enemies",
+    category: "weapon",
+    isSummon: true,
+    eligible: () => true,
+    apply: (s) => s.player.weapons.push(frostNovaWeaponDef.create()),
+  },
+  mods: [
+    {
+      id: "frost_deep_freeze",
+      name: "Deep Freeze",
+      desc: `+${Math.round((WEAPONS.FROST_NOVA.MODS.DEEP_FREEZE_MULT - 1) * 100)}% frost damage`,
+      category: "weapon",
+      isDamageRelevant: true,
+      eligible: () => true,
+      apply: (s) => {
+        const w = findFrostNovaWeapon(s);
+        if (w) w.damage *= WEAPONS.FROST_NOVA.MODS.DEEP_FREEZE_MULT;
+      },
+    },
+    {
+      id: "frost_wider",
+      name: "Wider Frost",
+      desc: `+${WEAPONS.FROST_NOVA.MODS.WIDER_STEP}px radius (max +${WEAPONS.FROST_NOVA.MODS.WIDER_MAX_BONUS})`,
+      category: "weapon",
+      eligible: (s) => {
+        const w = findFrostNovaWeapon(s);
+        return (
+          !!w &&
+          w.radius <
+            WEAPONS.FROST_NOVA.RADIUS + WEAPONS.FROST_NOVA.MODS.WIDER_MAX_BONUS - 1e-6
+        );
+      },
+      apply: (s) => {
+        const w = findFrostNovaWeapon(s);
+        if (!w) return;
+        const cap = WEAPONS.FROST_NOVA.RADIUS + WEAPONS.FROST_NOVA.MODS.WIDER_MAX_BONUS;
+        w.radius = Math.min(cap, w.radius + WEAPONS.FROST_NOVA.MODS.WIDER_STEP);
+      },
+    },
+    {
+      id: "frost_lasting",
+      name: "Lasting Chill",
+      desc: `+${WEAPONS.FROST_NOVA.MODS.LASTING_STEP}s slow duration`,
+      category: "weapon",
+      eligible: (s) => {
+        const w = findFrostNovaWeapon(s);
+        return (
+          !!w &&
+          w.slowDuration <
+            WEAPONS.FROST_NOVA.SLOW_DURATION + WEAPONS.FROST_NOVA.MODS.LASTING_MAX_BONUS - 1e-6
+        );
+      },
+      apply: (s) => {
+        const w = findFrostNovaWeapon(s);
+        if (!w) return;
+        const cap =
+          WEAPONS.FROST_NOVA.SLOW_DURATION + WEAPONS.FROST_NOVA.MODS.LASTING_MAX_BONUS;
+        w.slowDuration = Math.min(cap, w.slowDuration + WEAPONS.FROST_NOVA.MODS.LASTING_STEP);
+      },
+    },
+  ],
+  evolutionMod: {
+    id: EVOLUTIONS.FROST_NOVA.ID,
+    name: EVOLUTIONS.FROST_NOVA.NAME,
+    desc: EVOLUTIONS.FROST_NOVA.DESC,
+    category: "evolution",
+    isEvolution: true,
+    isDamageRelevant: true,
+    eligible: (s) => {
+      const w = findFrostNovaWeapon(s);
+      return !!w && !w.evolved;
+    },
+    apply: (s) => {
+      const w = findFrostNovaWeapon(s);
+      if (!w || w.evolved) return;
+      w.radius *= EVOLUTIONS.FROST_NOVA.RADIUS_MULT;
+      w.damage *= EVOLUTIONS.FROST_NOVA.DAMAGE_MULT;
+      w.evolved = true;
+    },
+  },
+};
+
 export const WEAPON_DEFS: WeaponDef[] = [
   pistolWeaponDef,
   orbWeaponDef,
@@ -1283,6 +1604,9 @@ export const WEAPON_DEFS: WeaponDef[] = [
   clusterBombWeaponDef,
   repulsorWeaponDef,
   swordWeaponDef,
+  ricochetWeaponDef,
+  droneWeaponDef,
+  frostNovaWeaponDef,
 ];
 
 export function getOwnedWeaponDefs(state: GameState): WeaponDef[] {

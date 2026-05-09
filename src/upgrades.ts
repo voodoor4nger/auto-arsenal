@@ -84,6 +84,20 @@ export const UPGRADE_DEFS: UpgradeDef[] = [
       s.player.rerollTokens = UPGRADES.REROLL_TOKEN.TOKENS_PER_TIER * tier;
     },
   },
+  {
+    id: UPGRADES.DASH_RECHARGE.ID,
+    name: UPGRADES.DASH_RECHARGE.NAME,
+    desc: UPGRADES.DASH_RECHARGE.DESC,
+    maxTier: UPGRADES.DASH_RECHARGE.MAX_TIER,
+    costs: [...UPGRADES.DASH_RECHARGE.COSTS],
+    apply: (s, tier) => {
+      s.player.dashCooldownMax = Math.max(
+        0,
+        s.player.dashCooldownMax -
+          UPGRADES.DASH_RECHARGE.COOLDOWN_REDUCTION_PER_TIER * tier
+      );
+    },
+  },
 ];
 
 export function applyUpgrades(state: GameState, save: SaveData): void {

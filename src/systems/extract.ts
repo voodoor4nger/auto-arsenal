@@ -1,6 +1,7 @@
 import type { GameState } from "../game";
 import type { ExtractionZone } from "../types";
 import {
+  BOSS_SPAWN_DISTANCE,
   EXTRACT_INTERVAL,
   EXTRACT_MULTIPLIERS,
   EXTRACT_MULT_STEP_AFTER,
@@ -8,6 +9,7 @@ import {
   EXTRACT_SPAWN_DISTANCE,
   EXTRACT_WINDOW_DURATION,
 } from "../constants";
+import { makeBossBruteLord } from "./spawn";
 
 export function getExtractMultiplier(windowIndex: number): number {
   if (windowIndex <= 0) return 0;
@@ -26,6 +28,7 @@ export function updateExtraction(state: GameState, dt: number): boolean {
   if (state.extraction === null) {
     if (state.time >= EXTRACT_INTERVAL * state.nextExtractWindow) {
       state.extraction = spawnZone(state, state.nextExtractWindow);
+      spawnBossForWindow(state, state.nextExtractWindow);
       state.nextExtractWindow += 1;
     }
   }
@@ -36,6 +39,7 @@ export function updateExtraction(state: GameState, dt: number): boolean {
   zone.ttl -= dt;
   if (zone.ttl <= 0) {
     state.extraction = null;
+    despawnActiveBoss(state);
     return false;
   }
 
@@ -43,6 +47,22 @@ export function updateExtraction(state: GameState, dt: number): boolean {
   const dy = state.player.pos.y - zone.pos.y;
   const r = zone.radius + state.player.radius;
   return dx * dx + dy * dy <= r * r;
+}
+
+function spawnBossForWindow(state: GameState, windowIndex: number): void {
+  const angle = Math.random() * Math.PI * 2;
+  const bx = state.player.pos.x + Math.cos(angle) * BOSS_SPAWN_DISTANCE;
+  const by = state.player.pos.y + Math.sin(angle) * BOSS_SPAWN_DISTANCE;
+  state.enemies.push(makeBossBruteLord(state, bx, by, windowIndex));
+}
+
+export function despawnActiveBoss(state: GameState): void {
+  for (const e of state.enemies) {
+    if (e.species !== "boss_brute_lord") continue;
+    if (!e.alive) continue;
+    e.dropsLoot = false;
+    e.alive = false;
+  }
 }
 
 function spawnZone(state: GameState, windowIndex: number): ExtractionZone {

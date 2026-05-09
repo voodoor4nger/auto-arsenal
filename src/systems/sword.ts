@@ -1,6 +1,6 @@
 import type { GameState } from "../game";
 import type { Enemy } from "../types";
-import { WEAPONS } from "../constants";
+import { STATIONARY_THRESHOLD, WEAPONS } from "../constants";
 import { findSwordWeapon } from "../weapons";
 import { dealDamage } from "../damage";
 
@@ -16,12 +16,19 @@ export function updateSword(state: GameState, dt: number): void {
   if (w.cooldownRemaining > 0) return;
   if (w.fireRate <= 0) return;
 
-  const target = nearestEnemy(state);
-  if (!target) return;
-
   const px = state.player.pos.x;
   const py = state.player.pos.y;
-  const baseAngle = Math.atan2(target.pos.y - py, target.pos.x - px);
+  const vx = state.player.vel.x;
+  const vy = state.player.vel.y;
+  const speed = Math.hypot(vx, vy);
+  let baseAngle: number;
+  if (speed >= STATIONARY_THRESHOLD) {
+    baseAngle = Math.atan2(vy, vx);
+  } else {
+    const target = nearestEnemy(state);
+    if (!target) return;
+    baseAngle = Math.atan2(target.pos.y - py, target.pos.x - px);
+  }
   const arcRad = (w.arcAngle * Math.PI) / 180;
   const halfArc = arcRad * 0.5;
 

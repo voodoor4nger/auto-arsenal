@@ -68,7 +68,14 @@ function applyEffect(state: GameState, pu: Pickup): void {
     case "clock":
       applyClock(state);
       return;
+    case "treasure_chest":
+      applyTreasureChest(state);
+      return;
   }
+}
+
+function applyTreasureChest(state: GameState): void {
+  state.pendingChestRolls += 1;
 }
 
 function applyBomb(state: GameState): void {
@@ -82,6 +89,7 @@ function applyBomb(state: GameState): void {
     if (!e.alive) continue;
     if (e.pos.x < minX || e.pos.x > maxX || e.pos.y < minY || e.pos.y > maxY) continue;
     e.dropsLoot = false;
+    if (e.species === "bomber") e.detonated = true;
     e.hp -= PICKUP_BOMB_DAMAGE;
     if (e.hp <= 0) e.alive = false;
   }
@@ -110,8 +118,9 @@ function applyHeart(state: GameState): void {
 }
 
 function applyScrapBag(state: GameState, pu: Pickup): void {
-  state.player.runScrap += SCRAP_BAG_AMOUNT;
-  pushFloat(state, `+${SCRAP_BAG_AMOUNT} SCRAP`, pu.pos.x, pu.pos.y - 18, "#f5d76e");
+  const amount = pu.scrapValue ?? SCRAP_BAG_AMOUNT;
+  state.player.runScrap += amount;
+  pushFloat(state, `+${amount} SCRAP`, pu.pos.x, pu.pos.y - 18, "#f5d76e");
 }
 
 function applyClock(state: GameState): void {

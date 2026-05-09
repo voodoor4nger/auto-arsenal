@@ -33,8 +33,22 @@ export function updateRockets(state: GameState, dt: number): void {
     }
 
     if (r.homingStrength > 0) {
-      const tgt = nearestEnemy(state, r.pos.x, r.pos.y);
-      if (tgt) steerToward(r.vel, tgt.pos.x - r.pos.x, tgt.pos.y - r.pos.y, r.homingStrength, dt);
+      let tgt: Enemy | null = null;
+      if (r.targetId !== undefined) {
+        tgt = enemyById(state, r.targetId);
+      }
+      if (!tgt) {
+        tgt = nearestEnemyInRange(
+          state,
+          r.pos.x,
+          r.pos.y,
+          EVOLUTIONS.ROCKET.SUB_DETECT_RANGE
+        );
+        r.targetId = tgt ? tgt.id : undefined;
+      }
+      if (tgt) {
+        steerToward(r.vel, tgt.pos.x - r.pos.x, tgt.pos.y - r.pos.y, r.homingStrength, dt);
+      }
     }
 
     r.prevPos.x = r.pos.x;
@@ -69,14 +83,43 @@ function spawnSubRockets(state: GameState, parent: Rocket): void {
   const speed = Math.hypot(parent.vel.x, parent.vel.y) || WEAPONS.ROCKET.SPEED;
   const subDmgMult = EVOLUTIONS.ROCKET.SUB_DAMAGE_MULT;
   const subRadiusMult = EVOLUTIONS.ROCKET.SUB_RADIUS_MULT;
-  for (const deg of EVOLUTIONS.ROCKET.SUB_ANGLES_DEG) {
-    const angle = baseAngle + (deg * Math.PI) / 180;
+  const subCount = EVOLUTIONS.ROCKET.SUB_ANGLES_DEG.length;
+  const candidates = nearestEnemiesInRange(
+    state,
+    parent.pos.x,
+    parent.pos.y,
+    EVOLUTIONS.ROCKET.SUB_DETECT_RANGE,
+    subCount
+  );
+
+  for (let i = 0; i < subCount; i++) {
+    const deg = EVOLUTIONS.ROCKET.SUB_ANGLES_DEG[i];
+    let vx: number;
+    let vy: number;
+    let targetId: number | undefined;
+    if (candidates.length > 0) {
+      // Distribute targets: each sub-rocket gets a different one if possible;
+      // wrap by modulo when fewer than subCount enemies exist in range.
+      const tgt = candidates[i % candidates.length];
+      const dx = tgt.pos.x - parent.pos.x;
+      const dy = tgt.pos.y - parent.pos.y;
+      const len = Math.hypot(dx, dy) || 1;
+      vx = (dx / len) * speed;
+      vy = (dy / len) * speed;
+      targetId = tgt.id;
+    } else {
+      // No targets nearby — fan out from parent heading; homing finds work later.
+      const angle = baseAngle + (deg * Math.PI) / 180;
+      vx = Math.cos(angle) * speed;
+      vy = Math.sin(angle) * speed;
+    }
+
     state.rockets.push({
       kind: "rocket",
       id: state.nextEntityId++,
       pos: { x: parent.pos.x, y: parent.pos.y },
       prevPos: { x: parent.pos.x, y: parent.pos.y },
-      vel: { x: Math.cos(angle) * speed, y: Math.sin(angle) * speed },
+      vel: { x: vx, y: vy },
       radius: WEAPONS.ROCKET.RADIUS * EVOLUTIONS.ROCKET.SUB_RENDER_RADIUS_MULT,
       alive: true,
       impactDamage: parent.impactDamage * subDmgMult,
@@ -90,8 +133,58 @@ function spawnSubRockets(state: GameState, parent: Rocket): void {
       splitDistance: 0,
       splitTimer: 0,
       homingStrength: EVOLUTIONS.ROCKET.SUB_HOMING,
+      targetId,
     });
   }
+}
+
+function enemyById(state: GameState, id: number): Enemy | null {
+  for (const e of state.enemies) {
+    if (e.id === id && e.alive) return e;
+  }
+  return null;
+}
+
+function nearestEnemyInRange(
+  state: GameState,
+  x: number,
+  y: number,
+  range: number
+): Enemy | null {
+  const r2 = range * range;
+  let best: Enemy | null = null;
+  let bestD2 = Infinity;
+  for (const e of state.enemies) {
+    if (!e.alive) continue;
+    const dx = e.pos.x - x;
+    const dy = e.pos.y - y;
+    const d2 = dx * dx + dy * dy;
+    if (d2 <= r2 && d2 < bestD2) {
+      best = e;
+      bestD2 = d2;
+    }
+  }
+  return best;
+}
+
+function nearestEnemiesInRange(
+  state: GameState,
+  x: number,
+  y: number,
+  range: number,
+  n: number
+): Enemy[] {
+  const r2 = range * range;
+  const candidates: { e: Enemy; d2: number }[] = [];
+  for (const e of state.enemies) {
+    if (!e.alive) continue;
+    const dx = e.pos.x - x;
+    const dy = e.pos.y - y;
+    const d2 = dx * dx + dy * dy;
+    if (d2 <= r2) candidates.push({ e, d2 });
+  }
+  candidates.sort((a, b) => a.d2 - b.d2);
+  return candidates.slice(0, n).map((c) => c.e);
 }
 
 function detonate(state: GameState, r: Rocket, hit: Enemy | null): void {

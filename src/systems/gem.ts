@@ -4,10 +4,10 @@ import {
   GEM_PULL_SPEED_MIN,
   GEM_SNAP_RADIUS,
   GLOBAL_DAMAGE_MULT_PER_LEVEL,
-  LEVEL_XP_GROWTH,
   MAGNET_PICKUP_SPEED,
   PICKUP_VIZ_DURATION,
   SCRAP_PER_LEVEL,
+  XP,
 } from "../constants";
 
 export function updateGems(state: GameState, dt: number): void {
@@ -63,7 +63,8 @@ function grantXp(state: GameState, amount: number): void {
   while (p.xp >= p.xpToNext) {
     p.xp -= p.xpToNext;
     p.level += 1;
-    p.xpToNext = Math.ceil(p.xpToNext * LEVEL_XP_GROWTH);
+    const growth = p.level > XP.GROWTH_KNEE_LEVEL ? XP.LATE_GROWTH : XP.EARLY_GROWTH;
+    p.xpToNext = Math.ceil(p.xpToNext * growth);
     p.globalDamageMult += GLOBAL_DAMAGE_MULT_PER_LEVEL;
     p.runScrap += SCRAP_PER_LEVEL;
     state.pendingLevelUps += 1;
